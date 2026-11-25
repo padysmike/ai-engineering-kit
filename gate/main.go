@@ -144,6 +144,9 @@ func parseOptions(args []string, out io.Writer) (options, error) {
 	if err := o.resolve(box, state); err != nil {
 		return o, err
 	}
+	if err := o.sandbox.forbidHostWith(flagUse{"state", state != ""}); err != nil {
+		return o, err
+	}
 	o.targets = splitList(targets)
 	o.protected = splitList(protected)
 	return o, nil
@@ -165,7 +168,7 @@ func evaluate(o options) (outcome, error) {
 	}
 	changes := parseDiff(raw)
 
-	results := []result{checkProtected(changes, o), checkImmutable(changes, o)}
+	results := []result{checkProtected(changes, o), checkImmutable(changes, o), checkTestMain(o, baseSHA, branchSHA)}
 	results = append(results, runTargets(o, baseSHA, branchSHA)...)
 	oc := requestApproval(o, outcome{results: results, sha: branchSHA})
 	if o.merge && allOK(oc.results) {
@@ -218,6 +221,26 @@ func checkProtected(changes []change, o options) result {
 		return result{name: "protected paths untouched", ok: true}
 	}
 	return result{name: "protected path changed: " + strings.Join(hits, ", "), approval: &approvalNeed{kind: kindProtected, files: hits}}
+}
+
+func checkTestMain(o options, baseSHA, branchSHA string) result {
+	diff, err := git(o.repo, "diff", "-U0", "--no-color", baseSHA+"..."+branchSHA, "--", "*_test.go")
+	if err != nil {
+		return result{name: "test main check failed", detail: []string{err.Error()}}
+	}
+	if !addsTestMain(diff) || o.allowTestChanges {
+		return result{name: "no new TestMain", ok: true}
+	}
+	return result{name: "TestMain added or changed: it controls the test process and can hide failures", approval: &approvalNeed{kind: kindTests, files: []string{"TestMain"}}}
+}
+
+func addsTestMain(diff string) bool {
+	for _, line := range strings.Split(diff, "\n") {
+		if strings.HasPrefix(line, "+") && strings.Contains(line, "func TestMain(") {
+			return true
+		}
+	}
+	return false
 }
 
 func checkImmutable(changes []change, o options) result {

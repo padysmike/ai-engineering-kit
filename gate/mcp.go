@@ -108,6 +108,9 @@ func parseMCPConfig(args []string) (mcpConfig, string, error) {
 	if cfg.sandbox, err = box.choose(); err != nil {
 		return cfg, "", err
 	}
+	if err = cfg.sandbox.forbidHostWith(flagUse{"state", state != ""}, flagUse{"github", slug != ""}, flagUse{"allow-merge", cfg.allowMerge}); err != nil {
+		return cfg, "", err
+	}
 	if state != "" {
 		cfg.approvals = &approvalStore{dir: state}
 	}

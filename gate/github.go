@@ -268,6 +268,14 @@ func runPR(args []string, out io.Writer) int {
 	return runPullRequest(o, out)
 }
 
+func (o *prOptions) chooseSandbox(box sandboxFlags) error {
+	var err error
+	if o.sandbox, err = box.choose(); err != nil {
+		return err
+	}
+	return o.sandbox.forbidHostWith(flagUse{"github", true})
+}
+
 func parsePROptions(args []string, out io.Writer) (prOptions, error) {
 	var o prOptions
 	var slug, state string
@@ -291,8 +299,7 @@ func parsePROptions(args []string, out io.Writer) (prOptions, error) {
 	if o.branch == "" {
 		return o, fmt.Errorf("--branch is required")
 	}
-	var err error
-	if o.sandbox, err = box.choose(); err != nil {
+	if err := o.chooseSandbox(box); err != nil {
 		return o, err
 	}
 	if state != "" {

@@ -60,6 +60,23 @@ func (f sandboxFlags) choose() (sandbox, error) {
 	return sandbox{image: f.image}, nil
 }
 
+type flagUse struct {
+	name string
+	set  bool
+}
+
+func (s sandbox) forbidHostWith(uses ...flagUse) error {
+	if s.enabled() {
+		return nil
+	}
+	for _, use := range uses {
+		if use.set {
+			return fmt.Errorf("--%s cannot be combined with --%s: the branch's code would run as the host user and could approve or merge itself", hostFlagName, use.name)
+		}
+	}
+	return nil
+}
+
 func (s sandbox) enabled() bool {
 	return s.image != ""
 }
@@ -90,11 +107,12 @@ func (s sandbox) dockerArgs(run checkRun) []string {
 		"--network", "none",
 		"--cap-drop", "ALL",
 		"--security-opt", "no-new-privileges",
+		"--read-only",
 		"--pids-limit", sandboxPids,
 		"--memory", sandboxMemory,
 		"--user", strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()),
 		"--tmpfs", containerTmp + ":exec,size=2g",
-		"-v", run.dir + ":" + containerWork,
+		"-v", run.dir + ":" + containerWork + ":ro",
 		"-v", run.diffFile + ":" + containerDiff + ":ro",
 		"-v", run.modCache + ":" + containerMods + ":ro",
 		"-w", containerWork,

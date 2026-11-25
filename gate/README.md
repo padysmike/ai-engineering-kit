@@ -4,7 +4,7 @@ A small Go program that decides whether a branch may be merged into `main`.
 
 ## Trust model
 - It runs on the host, outside the agent's sandbox. The agent has no merge token.
-- The checks execute the branch's own code (tests, build, lint), so they never run in the gate's process or environment. Each `make` target runs in a throwaway container with no network, no capabilities, none of the gate's environment variables and only two mounts: the worktree and a read-only module cache. The gate reads the exit code and the output. The gate's tokens and the approval state directory are never visible to the branch's code.
+- The checks execute the branch's own code (tests, build, lint), so they never run in the gate's process or environment. Each `make` target runs in a throwaway container with no network, no capabilities, none of the gate's environment variables, a read-only root filesystem and only three mounts: the worktree (read-only, so one target cannot rewrite the Makefile for the next), the diff, and a read-only module cache. Everything the checks write goes to a tmpfs that disappears with the container. The gate reads the exit code and the output. The gate's tokens and the approval state directory are never visible to the branch's code.
 - It trusts only the base branch. It restores `Makefile` and `scripts/` from the base branch before running any check, so a branch cannot weaken its own checks.
 - It blocks when a branch changes a protected path (`Makefile`, `scripts/`, `gate/`, `skills/`, `.claude/`, `.github/`, `.golangci.yml`, `AGENTS.md`, `CLAUDE.md`).
 - It blocks when a branch modifies, renames or deletes an approved test or scenario (`scenarios/`, `*_test.go`). Adding new ones is allowed.
@@ -15,7 +15,7 @@ Build the image the checks run in once, and rebuild it when the Go or linter ver
 
     docker build -t ai-engineering-checks -f gate/checks.Dockerfile gate
 
-Every command that runs checks needs `--sandbox-image ai-engineering-checks`. The gate downloads modules on the host first (`go mod download` executes no module code), then runs the targets with `GOPROXY=off`. `--host-checks` runs the targets on the host instead, with only an allowlisted environment; the branch's code can then still read host files, so use it only for code you trust.
+Every command that runs checks needs `--sandbox-image ai-engineering-checks`. The gate downloads modules on the host first (`go mod download` executes no module code), then runs the targets with `GOPROXY=off`. `--host-checks` runs the targets on the host instead, with only an allowlisted environment. The branch's code then runs as the host user, so it can read host files, rewrite the shared worktree between targets and write into the approval state. The gate refuses `--host-checks` together with `--state`, `--github` or `--allow-merge`; use it only for local experiments on code you trust.
 
 ## Usage
     make gate-build
@@ -27,6 +27,8 @@ Every command that runs checks needs `--sandbox-image ai-engineering-checks`. Th
 Exit codes: 0 passed, 1 blocked, 2 usage or internal error.
 
 ## Limits
+A new or changed `TestMain` is held for human approval, because it controls the test process and can hide failing tests. Code that runs inside the test process can still forge its own output, so tests that pass are evidence, not proof; review and mutation testing cover the rest. The image pins the Go and golangci-lint versions; golangci-lint must be built with a Go version at least as new as the image's, otherwise `REQUIRE_LINT=1` blocks every pull request.
+
 The gate catches weakened checks, not necessarily vacuous tests. Review and mutation testing cover that. Keep the binary and the repository checkout outside the agent's reach.
 
 ## MCP server

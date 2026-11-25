@@ -88,3 +88,41 @@ func TestPrepareRun_Branch_WritesDiffOfGoFilesOutsideWorktree(t *testing.T) {
 		t.Fatalf("diff file %s is inside the worktree", run.diffFile)
 	}
 }
+
+func TestForbidHostWith_HostChecksAndSecretsFlag_Rejected(t *testing.T) {
+	err := sandbox{}.forbidHostWith(flagUse{"state", true})
+
+	if err == nil || !strings.Contains(err.Error(), "--state") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestForbidHostWith_ContainerChecks_AllowsEverything(t *testing.T) {
+	err := sandbox{image: "x"}.forbidHostWith(flagUse{"state", true}, flagUse{"github", true})
+
+	if err != nil {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestDockerArgs_Run_WorktreeAndRootFilesystemReadOnly(t *testing.T) {
+	run := checkRun{dir: "/tmp/gate-1/wt", target: "test", diffFile: "/tmp/d", modCache: "/m"}
+
+	args := strings.Join(sandbox{image: "x"}.dockerArgs(run), " ")
+
+	for _, want := range []string{"--read-only", "-v /tmp/gate-1/wt:/work:ro"} {
+		if !strings.Contains(args, want) {
+			t.Errorf("args lack %q:\n%s", want, args)
+		}
+	}
+}
+
+func TestAddsTestMain_Diff_DetectsOnlyAddedDefinitions(t *testing.T) {
+	added := "+++ b/app/x_test.go\n@@ -0,0 +1 @@\n+func TestMain(m *testing.M) {\n"
+	removed := "-func TestMain(m *testing.M) {\n"
+	mention := "+// see TestMain docs\n"
+
+	if !addsTestMain(added) || addsTestMain(removed) || addsTestMain(mention) {
+		t.Fatal("detection is wrong")
+	}
+}

@@ -252,3 +252,20 @@ func TestMatchesAny_ProtectedPatterns_PrefixOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestGate_NewTestMain_BlockedUnlessApproved(t *testing.T) {
+	dir := newRepo(t)
+	branchWith(t, dir, "ticket-9", func() {
+		write(t, dir, "app/zz_main_test.go", "package main\n\nimport (\n\t\"os\"\n\t\"testing\"\n)\n\nfunc TestMain(m *testing.M) {\n\tos.Exit(0)\n}\n")
+	})
+
+	blockedCode, blockedOut := gate(t, dir, "--branch", "ticket-9")
+	approvedCode, _ := gate(t, dir, "--branch", "ticket-9", "--allow-test-changes")
+
+	if blockedCode == 0 || !strings.Contains(blockedOut, "[FAIL] TestMain added or changed") {
+		t.Fatalf("want a TestMain block, got %d\n%s", blockedCode, blockedOut)
+	}
+	if strings.Contains(blockedOut, "[FAIL] no new TestMain") || approvedCode == 3 {
+		t.Fatalf("approval flag should accept it, got %d", approvedCode)
+	}
+}
