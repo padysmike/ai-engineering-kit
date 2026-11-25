@@ -223,20 +223,31 @@ func checkProtected(changes []change, o options) result {
 	return result{name: "protected path changed: " + strings.Join(hits, ", "), approval: &approvalNeed{kind: kindProtected, files: hits}}
 }
 
+var processControl = []string{"func TestMain(", "syscall.Exit", "testing.Testing()", `flag.Lookup("test.`}
+
 func checkTestMain(o options, baseSHA, branchSHA string) result {
 	diff, err := git(o.repo, "diff", "-U0", "--no-color", baseSHA+"..."+branchSHA, "--", "*_test.go")
 	if err != nil {
-		return result{name: "test main check failed", detail: []string{err.Error()}}
+		return result{name: "test process check failed", detail: []string{err.Error()}}
 	}
 	if !addsTestMain(diff) || o.allowTestChanges {
-		return result{name: "no new TestMain", ok: true}
+		return result{name: "no test process control added", ok: true}
 	}
-	return result{name: "TestMain added or changed: it controls the test process and can hide failures", approval: &approvalNeed{kind: kindTests, files: []string{"TestMain"}}}
+	return result{name: "test process control added (TestMain, syscall.Exit, testing.Testing, flag.Lookup(\"test.): it can hide failures", approval: &approvalNeed{kind: kindTests, files: []string{"TestMain"}}}
 }
 
 func addsTestMain(diff string) bool {
 	for _, line := range strings.Split(diff, "\n") {
-		if strings.HasPrefix(line, "+") && strings.Contains(line, "func TestMain(") {
+		if strings.HasPrefix(line, "+") && containsAny(line, processControl) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsAny(line string, needles []string) bool {
+	for _, n := range needles {
+		if strings.Contains(line, n) {
 			return true
 		}
 	}
@@ -273,7 +284,7 @@ func runTargets(o options, baseSHA, branchSHA string) []result {
 		run.target = target
 		results = append(results, runTarget(o.sandbox, run))
 	}
-	return results
+	return append(results, approvedAlone(o, run, branchSHA)...)
 }
 
 func trustedWorktree(repo, baseSHA, branchSHA string) (string, func(), error) {

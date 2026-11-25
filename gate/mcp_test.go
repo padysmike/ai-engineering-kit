@@ -224,7 +224,9 @@ func TestMCP_Request_LoggedWithToolBranchClientAndOutcome(t *testing.T) {
 	cfg := testConfig(dir, false)
 	cfg.log = &logged
 
-	callTool(t, connect(t, cfg), "gate_check", "ticket-1")
+	if _, _, err := callTool(t, connect(t, cfg), "gate_check", "ticket-1"); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, want := range []string{"request tool=gate_check branch=ticket-1", `client="test/"`, "finished tool=gate_check", "exit="} {
 		if !strings.Contains(logged.String(), want) {

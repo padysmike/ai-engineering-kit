@@ -262,10 +262,10 @@ func TestGate_NewTestMain_BlockedUnlessApproved(t *testing.T) {
 	blockedCode, blockedOut := gate(t, dir, "--branch", "ticket-9")
 	approvedCode, _ := gate(t, dir, "--branch", "ticket-9", "--allow-test-changes")
 
-	if blockedCode == 0 || !strings.Contains(blockedOut, "[FAIL] TestMain added or changed") {
+	if blockedCode == 0 || !strings.Contains(blockedOut, "[FAIL] test process control added") {
 		t.Fatalf("want a TestMain block, got %d\n%s", blockedCode, blockedOut)
 	}
-	if strings.Contains(blockedOut, "[FAIL] no new TestMain") || approvedCode == 3 {
+	if strings.Contains(blockedOut, "[FAIL] no test process control added") || approvedCode == 3 {
 		t.Fatalf("approval flag should accept it, got %d", approvedCode)
 	}
 }

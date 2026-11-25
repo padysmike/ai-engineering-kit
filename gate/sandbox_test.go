@@ -117,12 +117,19 @@ func TestDockerArgs_Run_WorktreeAndRootFilesystemReadOnly(t *testing.T) {
 	}
 }
 
-func TestAddsTestMain_Diff_DetectsOnlyAddedDefinitions(t *testing.T) {
-	added := "+++ b/app/x_test.go\n@@ -0,0 +1 @@\n+func TestMain(m *testing.M) {\n"
-	removed := "-func TestMain(m *testing.M) {\n"
-	mention := "+// see TestMain docs\n"
-
-	if !addsTestMain(added) || addsTestMain(removed) || addsTestMain(mention) {
-		t.Fatal("detection is wrong")
+func TestAddsTestMain_Diff_DetectsOnlyAddedProcessControl(t *testing.T) {
+	cases := map[string]bool{
+		"+func TestMain(m *testing.M) {\n": true,
+		"+\tsyscall.Exit(0)\n":             true,
+		"+\tif testing.Testing() {\n":      true,
+		"+\tflag.Lookup(\"test.v\")\n":     true,
+		"-func TestMain(m *testing.M) {\n": false,
+		"+// see TestMain docs\n":          false,
+		"+\tos.Exit(1)\n":                  false,
+	}
+	for diff, want := range cases {
+		if got := addsTestMain(diff); got != want {
+			t.Errorf("%q: got %v, want %v", diff, got, want)
+		}
 	}
 }
