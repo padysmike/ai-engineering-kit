@@ -27,7 +27,7 @@ Every command that runs checks needs `--sandbox-image ai-engineering-checks`. Th
 Exit codes: 0 passed, 1 blocked, 2 usage or internal error.
 
 ## Limits
-A new or changed `TestMain` is held for human approval, because it controls the test process and can hide failing tests. Code that runs inside the test process can still forge its own output, so tests that pass are evidence, not proof; review and mutation testing cover the rest. The image pins the Go and golangci-lint versions; golangci-lint must be built with a Go version at least as new as the image's, otherwise `REQUIRE_LINT=1` blocks every pull request.
+Added lines that take control of the test process (`TestMain`, `syscall.Exit`, `testing.Testing()`, `flag.Lookup("test.`) are held for human approval, because they can hide failing tests. When a branch adds test files or scenarios, `test` and `bdd` also run a second time on a copy of the worktree without those new files, so the approved tests run alone and the new files cannot hook into them. Both runs must pass. Code that runs inside the test process can still forge its own output, so tests that pass are evidence, not proof; review and mutation testing cover the rest. The image pins the Go and golangci-lint versions; golangci-lint must be built with a Go version at least as new as the image's, otherwise `REQUIRE_LINT=1` blocks every pull request.
 
 The gate catches weakened checks, not necessarily vacuous tests. Review and mutation testing cover that. Keep the binary and the repository checkout outside the agent's reach.
 
