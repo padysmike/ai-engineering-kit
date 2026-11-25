@@ -4,7 +4,7 @@ Heuristics generate, determinism decides.
 
 | | Soft rules | Hard rules |
 |---|---|---|
-| Examples | `AGENTS.md`, skills, prompts, model choice | gate on the host, sandbox, CODEOWNERS, no merge token for the agent |
+| Examples | `AGENTS.md`, skills, prompts, model choice | gate on the host (checks in a throwaway container), sandbox, CODEOWNERS, no merge token for the agent |
 | Enforced by | the model's cooperation | something the agent cannot change |
 | Failure mode | ignored or misread | blocks the merge |
 

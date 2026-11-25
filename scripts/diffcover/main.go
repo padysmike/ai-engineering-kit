@@ -81,6 +81,10 @@ func load(profilePath, base string) (map[string]map[int]bool, map[string][]block
 }
 
 func gitDiff(base string) (string, error) {
+	if path := os.Getenv("GATE_DIFF_FILE"); path != "" {
+		raw, err := os.ReadFile(path)
+		return string(raw), err
+	}
 	cmd := exec.Command("git", "diff", "-U0", "--no-color", base+"...HEAD", "--", "*.go", ":!*_test.go")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

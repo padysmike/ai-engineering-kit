@@ -26,7 +26,7 @@ If other checks fail too, no request is created. The agent has to fix those firs
 The service stores requests in the directory given by `--state` (default `~/.gate`, or `GATE_STATE_DIR`). Keep it on the host, outside everything mounted into the sandbox. The MCP server has no tool that approves or denies, so the agent cannot decide for itself.
 
 ## One-off approval without the flow
-    bin/gate pr --github OWNER/REPO --branch ticket-7 --allow-test-changes --merge
+    bin/gate pr --sandbox-image ai-engineering-checks --github OWNER/REPO --branch ticket-7 --allow-test-changes --merge
 
 The same flags `--allow-test-changes` and `--allow-protected` exist for the local mode. They are only for a human at a terminal.
 

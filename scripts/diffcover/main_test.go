@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -73,5 +75,19 @@ func TestRun_MissingProfile_ExitsWithError(t *testing.T) {
 
 	if code != exitError || !strings.Contains(out.String(), "--profile is required") {
 		t.Fatalf("code %d, output %q", code, out.String())
+	}
+}
+
+func TestGitDiff_DiffFileSet_ReadsFileInsteadOfGit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "changes.diff")
+	if err := os.WriteFile(path, []byte("diff content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GATE_DIFF_FILE", path)
+
+	got, err := gitDiff("main")
+
+	if err != nil || got != "diff content" {
+		t.Fatalf("got %q, err %v", got, err)
 	}
 }

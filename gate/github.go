@@ -50,6 +50,7 @@ type prOptions struct {
 	allowProtected   bool
 	approvals        *approvalStore
 	notify           io.Writer
+	sandbox          sandbox
 }
 
 func newGithubAPI(slug, token string) (githubAPI, error) {
@@ -218,6 +219,7 @@ func (o prOptions) gateOptions(prNumber int) (options, error) {
 		prNumber:         prNumber,
 		approvals:        o.approvals,
 		notify:           o.notify,
+		sandbox:          o.sandbox,
 	}, nil
 }
 
@@ -269,6 +271,7 @@ func runPR(args []string, out io.Writer) int {
 func parsePROptions(args []string, out io.Writer) (prOptions, error) {
 	var o prOptions
 	var slug, state string
+	var box sandboxFlags
 	fs := flag.NewFlagSet("gate pr", flag.ContinueOnError)
 	fs.SetOutput(out)
 	fs.StringVar(&o.repoDir, "repo", ".", "path to the git checkout")
@@ -281,11 +284,16 @@ func parsePROptions(args []string, out io.Writer) (prOptions, error) {
 	fs.BoolVar(&o.allowTestChanges, "allow-test-changes", false, "a human approved changes to existing tests and scenarios")
 	fs.BoolVar(&o.allowProtected, "allow-protected", false, "a human approved changes to protected paths")
 	fs.StringVar(&state, "state", "", "directory for human approval requests; enables the approval flow when set")
+	box.register(fs)
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
 	if o.branch == "" {
 		return o, fmt.Errorf("--branch is required")
+	}
+	var err error
+	if o.sandbox, err = box.choose(); err != nil {
+		return o, err
 	}
 	if state != "" {
 		o.approvals = &approvalStore{dir: state}

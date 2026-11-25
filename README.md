@@ -14,9 +14,11 @@ Materials for the lecture "Ze života developera v AI době" (a day in the life 
 | `scripts/` | check scripts used by the Makefile |
 
 ## Quick start
+    go mod tidy         # first time only; commit go.mod and go.sum
     make check          # needs Go 1.26+ (required by the MCP SDK); golangci-lint is optional
     make gate-build
-    bin/gate --branch <branch>
+    docker build -t ai-engineering-checks -f gate/checks.Dockerfile gate
+    bin/gate --sandbox-image ai-engineering-checks --branch <branch>
 
 ## Skills in other tools
 Skills live once, in `skills/`. Point your tool at that directory (symlink or copy into `.claude/skills`, `.codex/skills`, `.github/skills`, `.gemini/skills`, or use the `skills` CLI). Validate with `make validate-skills`.

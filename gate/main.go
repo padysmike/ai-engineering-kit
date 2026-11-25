@@ -43,6 +43,7 @@ type options struct {
 	prNumber         int
 	approvals        *approvalStore
 	notify           io.Writer
+	sandbox          sandbox
 }
 
 type result struct {
@@ -105,9 +106,23 @@ func isApprovalCommand(name string) bool {
 	return name == "approvals" || name == "approve" || name == "deny"
 }
 
+func (o *options) resolve(box sandboxFlags, state string) error {
+	var err error
+	if o.sandbox, err = box.choose(); err != nil {
+		return err
+	}
+	if state != "" {
+		o.approvals = &approvalStore{dir: state}
+		o.notify = os.Stderr
+	}
+	o.repo, err = filepath.Abs(o.repo)
+	return err
+}
+
 func parseOptions(args []string, out io.Writer) (options, error) {
 	var o options
 	var targets, protected, state string
+	var box sandboxFlags
 	fs := flag.NewFlagSet("gate", flag.ContinueOnError)
 	fs.SetOutput(out)
 	fs.StringVar(&o.repo, "repo", ".", "path to the git repository")
@@ -119,21 +134,16 @@ func parseOptions(args []string, out io.Writer) (options, error) {
 	fs.BoolVar(&o.allowProtected, "allow-protected", false, "a human approved changes to protected paths")
 	fs.BoolVar(&o.merge, "merge", false, "merge the branch into the base branch if every check passes")
 	fs.StringVar(&state, "state", "", "directory for human approval requests; enables the approval flow when set")
+	box.register(fs)
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
 	if o.branch == "" {
 		return o, fmt.Errorf("--branch is required")
 	}
-	if state != "" {
-		o.approvals = &approvalStore{dir: state}
-		o.notify = os.Stderr
-	}
-	repo, err := filepath.Abs(o.repo)
-	if err != nil {
+	if err := o.resolve(box, state); err != nil {
 		return o, err
 	}
-	o.repo = repo
 	o.targets = splitList(targets)
 	o.protected = splitList(protected)
 	return o, nil
@@ -231,9 +241,14 @@ func runTargets(o options, baseSHA, branchSHA string) []result {
 	}
 	defer cleanup()
 
+	run, err := o.sandbox.prepareRun(o.repo, worktree, baseSHA, branchSHA)
+	if err != nil {
+		return []result{{name: "checks could not run", detail: []string{err.Error()}}}
+	}
 	var results []result
 	for _, target := range o.targets {
-		results = append(results, runTarget(worktree, target, baseSHA))
+		run.target = target
+		results = append(results, runTarget(o.sandbox, run))
 	}
 	return results
 }
@@ -280,18 +295,16 @@ func restoreTrusted(repo, worktree, baseSHA string) error {
 	return err
 }
 
-func runTarget(dir, target, baseSHA string) result {
+func runTarget(box sandbox, run checkRun) result {
 	ctx, cancel := context.WithTimeout(context.Background(), checkTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "make", "-s", target)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "REQUIRE_LINT=1", "GATE_BASE_SHA="+baseSHA)
+	cmd := box.command(ctx, run)
 	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &buf, &buf
 	if err := cmd.Run(); err != nil {
-		return result{name: target, detail: tail(buf.String(), detailLines)}
+		return result{name: run.target, detail: tail(buf.String(), detailLines)}
 	}
-	return result{name: target, ok: true}
+	return result{name: run.target, ok: true}
 }
 
 func doMerge(o options, branchSHA string) result {

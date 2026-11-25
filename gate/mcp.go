@@ -47,6 +47,7 @@ type mcpConfig struct {
 	github     *githubAPI
 	approvals  *approvalStore
 	log        io.Writer
+	sandbox    sandbox
 }
 
 type caller struct {
@@ -88,6 +89,7 @@ func runMCP(args []string) int {
 func parseMCPConfig(args []string) (mcpConfig, string, error) {
 	cfg := mcpConfig{log: os.Stderr}
 	var listen, slug, state string
+	var box sandboxFlags
 	fs := flag.NewFlagSet("gate mcp", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	fs.StringVar(&cfg.repo, "repo", ".", "path to the git repository")
@@ -98,7 +100,12 @@ func parseMCPConfig(args []string) (mcpConfig, string, error) {
 	fs.StringVar(&slug, "github", "", "GitHub repository as owner/repo; checks pull requests and posts the gate status")
 	fs.StringVar(&state, "state", "", "directory for human approval requests; enables the approval flow when set")
 	fs.StringVar(&listen, "listen", "", "serve MCP over HTTP on this address instead of stdio, for example 127.0.0.1:8765")
+	box.register(fs)
 	if err := fs.Parse(args); err != nil {
+		return cfg, "", err
+	}
+	var err error
+	if cfg.sandbox, err = box.choose(); err != nil {
 		return cfg, "", err
 	}
 	if state != "" {
@@ -264,7 +271,7 @@ func (s *gateService) execute(branch string, act action, out *strings.Builder) i
 		return runPullRequest(prOptions{
 			repoDir: cfg.repo, remote: cfg.remote, base: cfg.base, branch: branch,
 			targets: cfg.targets, merge: merge, gh: *cfg.github,
-			approvals: cfg.approvals, notify: os.Stderr,
+			approvals: cfg.approvals, notify: os.Stderr, sandbox: cfg.sandbox,
 		}, out)
 	}
 	repo, err := filepath.Abs(cfg.repo)
@@ -275,7 +282,7 @@ func (s *gateService) execute(branch string, act action, out *strings.Builder) i
 	return execute(options{
 		repo: repo, base: cfg.base, branch: branch, targets: splitList(cfg.targets),
 		protected: splitList(defaultProtected), merge: merge,
-		approvals: cfg.approvals, notify: os.Stderr,
+		approvals: cfg.approvals, notify: os.Stderr, sandbox: cfg.sandbox,
 	}, out)
 }
 

@@ -77,7 +77,7 @@ func branchWith(t *testing.T, dir, name string, edit func()) {
 func gate(t *testing.T, dir string, extra ...string) (int, string) {
 	t.Helper()
 	var buf bytes.Buffer
-	args := append([]string{"--repo", dir, "--base", "main", "--targets", testTargets}, extra...)
+	args := append([]string{"--repo", dir, "--base", "main", "--targets", testTargets, "--host-checks"}, extra...)
 	code := run(args, &buf)
 	return code, buf.String()
 }
