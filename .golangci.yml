@@ -1,0 +1,19 @@
+version: "2"
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - funlen
+    - gocyclo
+  settings:
+    funlen:
+      lines: 40
+      statements: 30
+    gocyclo:
+      min-complexity: 12
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - gocyclo

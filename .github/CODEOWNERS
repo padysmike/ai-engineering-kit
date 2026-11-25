@@ -1,0 +1,9 @@
+# Replace @your-github-user before publishing. Protected paths need the owner's review.
+/Makefile       @your-github-user
+/scripts/       @your-github-user
+/gate/          @your-github-user
+/skills/        @your-github-user
+/.github/       @your-github-user
+/AGENTS.md      @your-github-user
+/CLAUDE.md      @your-github-user
+/scenarios/     @your-github-user
