@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/cucumber/godog v0.16.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	rsc.io/qr v0.2.0
 )
 
 require (

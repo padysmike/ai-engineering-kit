@@ -48,7 +48,13 @@ func findHandler(rooms *roomStore) http.HandlerFunc {
 
 func joinHandler(rooms *roomStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		joined, err := rooms.join(r.PathValue("code"))
+		code := r.PathValue("code")
+		request, err := decodeJoin(w, r)
+		if err != nil {
+			refuseUnreadableJoin(w, rooms, code, err)
+			return
+		}
+		joined, err := rooms.admit(code, request.entryCheck())
 		if err != nil {
 			writeRoomError(w, err)
 			return
@@ -60,7 +66,7 @@ func joinHandler(rooms *roomStore) http.HandlerFunc {
 func transitionHandler(rooms *roomStore, from, to roomState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		code := r.PathValue("code")
-		if err := checkHostRequest(rooms, code, bearerToken(r)); err != nil {
+		if _, err := hostedRoom(rooms, code, bearerToken(r)); err != nil {
 			writeRoomError(w, err)
 			return
 		}
@@ -73,12 +79,12 @@ func transitionHandler(rooms *roomStore, from, to roomState) http.HandlerFunc {
 	}
 }
 
-func checkHostRequest(rooms *roomStore, code, token string) error {
+func hostedRoom(rooms *roomStore, code, token string) (room, error) {
 	found, err := rooms.find(code)
 	if err != nil {
-		return err
+		return room{}, err
 	}
-	return found.checkIsHost(token)
+	return found, found.checkIsHost(token)
 }
 
 func writeRoomError(w http.ResponseWriter, err error) {
@@ -91,7 +97,7 @@ func roomErrorStatus(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, errUnknownToken):
 		return http.StatusUnauthorized
-	case errors.Is(err, errNotParticipant), errors.Is(err, errNotHost):
+	case errors.Is(err, errNotParticipant), errors.Is(err, errNotHost), errors.Is(err, errBadQRToken):
 		return http.StatusForbidden
 	case errors.Is(err, errPostTooLong), errors.Is(err, errUnknownSort):
 		return http.StatusBadRequest

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob:">
   <title>Live Q&amp;A</title>
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
@@ -38,6 +38,7 @@
         <button type="button" id="open-room">Open room</button>
         <button type="button" id="close-room">Close room</button>
       </div>
+      <img id="qr" alt="QR code to join this room" hidden>
 
       <form id="post-form">
         <p>You are <strong id="alias"></strong></p>

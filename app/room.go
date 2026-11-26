@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"sync"
+	"time"
 )
 
 const roomCodeLength = 6
@@ -27,6 +28,8 @@ type room struct {
 	code         string
 	state        roomState
 	hostToken    string
+	qrKey        string
+	qrGeneration int
 	participants []participant
 	usedAliases  []string
 	posts        []post
@@ -38,6 +41,7 @@ type roomStore struct {
 	subscribers map[string]map[subscriber]struct{}
 	newCode     func() string
 	newAlias    func() string
+	now         func() time.Time
 }
 
 func newRoomStore(newCode func() string) *roomStore {
@@ -46,6 +50,7 @@ func newRoomStore(newCode func() string) *roomStore {
 		subscribers: map[string]map[subscriber]struct{}{},
 		newCode:     newCode,
 		newAlias:    randomAlias,
+		now:         time.Now,
 	}
 }
 
@@ -58,7 +63,7 @@ func (s *roomStore) create() room {
 	for _, taken := s.byCode[code]; taken; _, taken = s.byCode[code] {
 		code = s.newCode()
 	}
-	created := room{code: code, state: roomDraft, hostToken: rand.Text()}
+	created := room{code: code, state: roomDraft, hostToken: rand.Text(), qrKey: rand.Text()}
 	s.byCode[code] = created
 	return created
 }
@@ -83,12 +88,27 @@ func (r room) snapshot() room {
 	return r
 }
 
+type entryCheck func(room, time.Time) error
+
+func byRoomCode(room, time.Time) error { return nil }
+
+func byQRToken(token string) entryCheck {
+	return func(r room, now time.Time) error { return r.checkQRToken(token, now) }
+}
+
 func (s *roomStore) join(code string) (participant, error) {
+	return s.admit(code, byRoomCode)
+}
+
+func (s *roomStore) admit(code string, checkEntry entryCheck) (participant, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	found, ok := s.byCode[code]
 	if !ok {
 		return participant{}, errRoomNotFound
+	}
+	if err := checkEntry(found, s.now()); err != nil {
+		return participant{}, err
 	}
 	if found.state != roomOpen {
 		return participant{}, errRoomNotOpen
