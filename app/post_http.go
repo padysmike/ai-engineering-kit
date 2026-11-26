@@ -68,11 +68,7 @@ func decodeNewPost(w http.ResponseWriter, r *http.Request) (newPostRequest, erro
 }
 
 func authorOfRequest(rooms *roomStore, code, token string) (participant, error) {
-	found, err := rooms.find(code)
-	if err != nil {
-		return participant{}, err
-	}
-	author, err := found.participantByToken(token)
+	found, author, err := participantOfRequest(rooms, code, token)
 	if err != nil {
 		return participant{}, err
 	}
@@ -121,7 +117,7 @@ func requestedOrder(r *http.Request) (postOrder, error) {
 func voteHandler(rooms *roomStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		code := r.PathValue("code")
-		voter, err := participantOfRequest(rooms, code, bearerToken(r))
+		_, voter, err := participantOfRequest(rooms, code, bearerToken(r))
 		if err != nil {
 			writeRoomError(w, err)
 			return
@@ -140,12 +136,13 @@ func voteHandler(rooms *roomStore) http.HandlerFunc {
 	}
 }
 
-func participantOfRequest(rooms *roomStore, code, token string) (participant, error) {
+func participantOfRequest(rooms *roomStore, code, token string) (room, participant, error) {
 	found, err := rooms.find(code)
 	if err != nil {
-		return participant{}, err
+		return room{}, participant{}, err
 	}
-	return found.participantByToken(token)
+	caller, err := found.participantByToken(token)
+	return found, caller, err
 }
 
 func bearerToken(r *http.Request) string {
