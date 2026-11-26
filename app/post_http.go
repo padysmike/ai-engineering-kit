@@ -16,10 +16,11 @@ type newPostRequest struct {
 }
 
 type postView struct {
-	ID    int    `json:"id"`
-	Alias string `json:"alias"`
-	Text  string `json:"text"`
-	Votes int    `json:"votes"`
+	ID     int    `json:"id"`
+	Alias  string `json:"alias"`
+	Text   string `json:"text"`
+	Votes  int    `json:"votes"`
+	Hidden bool   `json:"hidden,omitempty"`
 }
 
 type feedView struct {
@@ -93,8 +94,9 @@ func feedHandler(rooms *roomStore) http.HandlerFunc {
 			writeRoomError(w, err)
 			return
 		}
-		slices.SortFunc(found.posts, order)
-		writeJSON(w, http.StatusOK, feedView{Posts: viewsOfPosts(found.posts)})
+		visible := found.postsVisibleTo(bearerToken(r))
+		slices.SortFunc(visible, order)
+		writeJSON(w, http.StatusOK, feedView{Posts: viewsOfPosts(visible)})
 	}
 }
 
@@ -158,5 +160,5 @@ func viewsOfPosts(posts []post) []postView {
 }
 
 func viewOfPost(p post) postView {
-	return postView{ID: p.id, Alias: p.alias, Text: p.text, Votes: len(p.voterIDs)}
+	return postView{ID: p.id, Alias: p.alias, Text: p.text, Votes: len(p.voterIDs), Hidden: p.hidden}
 }

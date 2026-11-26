@@ -19,6 +19,8 @@ let live = false;
 let streamedChanges = 0;
 let qrWanted = false;
 let qrRequests = 0;
+let participantsStale = false;
+let loadingParticipants = false;
 
 function loadSession() {
   try {
@@ -48,7 +50,10 @@ async function send(method, path, { token, body } = {}) {
   return response;
 }
 
-const api = async (method, path, options) => (await send(method, path, options)).json();
+async function api(method, path, options) {
+  const response = await send(method, path, options);
+  return response.status === 204 ? null : response.json();
+}
 
 const roomPath = () => `/rooms/${encodeURIComponent(session.code)}`;
 
@@ -83,6 +88,7 @@ function showScreen() {
   if (!session) return;
   const isHost = session.role === "host";
   byId("host-controls").hidden = !isHost;
+  byId("participants").hidden = !isHost;
   byId("post-form").hidden = isHost;
   byId("room-code").textContent = session.code;
   byId("alias").textContent = session.alias ?? "";
@@ -98,6 +104,7 @@ function clearRoom() {
   qrWanted = false;
   replaceQRImage(null);
   byId("feed").replaceChildren();
+  byId("participant-list").replaceChildren();
   byId("empty-feed").hidden = true;
   byId("post-form").reset();
   byId("sort").value = "newest";
@@ -111,6 +118,49 @@ function showRoom(room) {
   byId("close-room").disabled = room.state !== "open";
   byId("rotate-qr").disabled = room.state !== "open";
   syncQR(room);
+  if (session.role === "host") updateParticipants();
+}
+
+function showParticipants(list) {
+  byId("participant-list").replaceChildren(
+    ...list.map(({ id, alias }) => {
+      const item = document.createElement("li");
+      item.className = "row spread";
+      item.append(
+        textElement("span", "", alias),
+        actionButton("Kick", `Kick ${alias}? Their posts and votes stay.`, () => kick(id)),
+      );
+      return item;
+    }),
+  );
+}
+
+// Many joins arrive at once, so changes during a request cause just one more.
+async function updateParticipants() {
+  participantsStale = true;
+  if (loadingParticipants) return;
+  loadingParticipants = true;
+  try {
+    while (participantsStale && session?.role === "host") {
+      participantsStale = false;
+      const asking = session;
+      const { participants } = await api("GET", `${roomPath()}/participants`, { token: asking.token });
+      if (session === asking) showParticipants(participants);
+    }
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    loadingParticipants = false;
+  }
+}
+
+function actionButton(label, question, action) {
+  const button = textElement("button", "secondary", label);
+  button.type = "button";
+  button.addEventListener("click", () => {
+    if (!question || confirm(question)) perform(action);
+  });
+  return button;
 }
 
 function textElement(tag, className, text) {
@@ -131,12 +181,25 @@ function voteButton(post) {
 
 function postItem(post) {
   const votes = document.createElement("div");
-  votes.className = "row votes";
+  votes.className = "row spread votes";
   votes.append(textElement("span", "", `${post.votes} ${post.votes === 1 ? "vote" : "votes"}`));
   if (session.role === "attendee") votes.append(voteButton(post));
   const item = document.createElement("li");
   item.append(textElement("p", "author", post.alias), textElement("p", "text", post.text), votes);
+  if (session.role === "host") item.append(moderationControls(post));
   return item;
+}
+
+function moderationControls(post) {
+  const controls = document.createElement("div");
+  controls.className = "row";
+  controls.append(
+    post.hidden
+      ? textElement("span", "hidden-mark", "Hidden from attendees")
+      : actionButton("Hide", "", () => hidePost(post.id)),
+    actionButton("Delete", "Delete this post for everyone?", () => deletePost(post.id)),
+  );
+  return controls;
 }
 
 const newestFirst = (a, b) => b.id - a.id;
@@ -246,6 +309,7 @@ async function readEvents(connection, onSnapshot) {
     });
     if (!response.ok) {
       const error = new Error((await response.text()).trim() || `Request failed (${response.status})`);
+      error.status = response.status;
       error.permanent = PERMANENT_STATUSES.includes(response.status);
       throw error;
     }
@@ -282,6 +346,7 @@ async function followRoom(following) {
       if (error.permanent) {
         live = false;
         byId("live-state").textContent = "Not live.";
+        if (error.status === 401) replaceFeed([]);
         showError(error.message);
         return;
       }
@@ -363,6 +428,15 @@ async function rotateQR() {
   replaceQRImage(null);
   await renewQR();
 }
+
+async function moderate(method, path) {
+  await api(method, `${roomPath()}${path}`, { token: session.token });
+  await refreshUnlessLive();
+}
+
+const hidePost = (postId) => moderate("POST", `/posts/${postId}/hide`);
+const deletePost = (postId) => moderate("DELETE", `/posts/${postId}`);
+const kick = (participantId) => moderate("DELETE", `/participants/${participantId}`);
 
 async function submitPost() {
   await api("POST", `${roomPath()}/posts`, { token: session.token, body: { text: byId("post-text").value } });

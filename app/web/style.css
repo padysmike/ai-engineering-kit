@@ -76,7 +76,7 @@ button:disabled, body[aria-busy="true"] button { opacity: 0.5; }
 
 #post-length.over { color: #b91c1c; font-weight: bold; }
 
-#feed {
+#feed, #participant-list {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -94,10 +94,11 @@ button:disabled, body[aria-busy="true"] button { opacity: 0.5; }
   overflow-wrap: anywhere;
 }
 
-.votes {
-  justify-content: space-between;
-  margin-top: 0.5rem;
-}
+.spread { justify-content: space-between; }
+
+.votes { margin-top: 0.5rem; }
+
+.hidden-mark { font-style: italic; }
 
 #qr {
   width: 100%;
