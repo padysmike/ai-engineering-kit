@@ -38,6 +38,14 @@ type checkRun struct {
 	baseSHA  string
 	diffFile string
 	modCache string
+	command  []string
+}
+
+func (r checkRun) argv() []string {
+	if r.command != nil {
+		return r.command
+	}
+	return []string{"make", "-s", r.target}
 }
 
 type sandboxFlags struct {
@@ -93,7 +101,8 @@ func cleanEnv(extra ...string) []string {
 
 func (s sandbox) command(ctx context.Context, run checkRun) *exec.Cmd {
 	if !s.enabled() {
-		cmd := exec.CommandContext(ctx, "make", "-s", run.target)
+		argv := run.argv()
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 		cmd.Dir = run.dir
 		cmd.Env = cleanEnv("REQUIRE_LINT=1", "GATE_BASE_SHA="+run.baseSHA, "GATE_DIFF_FILE="+run.diffFile)
 		return cmd
@@ -102,7 +111,7 @@ func (s sandbox) command(ctx context.Context, run checkRun) *exec.Cmd {
 }
 
 func (s sandbox) dockerArgs(run checkRun) []string {
-	return []string{
+	args := []string{
 		"run", "--rm",
 		"--network", "none",
 		"--cap-drop", "ALL",
@@ -127,8 +136,8 @@ func (s sandbox) dockerArgs(run checkRun) []string {
 		"-e", "GATE_BASE_SHA=" + run.baseSHA,
 		"-e", "GATE_DIFF_FILE=" + containerDiff,
 		s.image,
-		"make", "-s", run.target,
 	}
+	return append(args, run.argv()...)
 }
 
 func (s sandbox) prefetchModules(dir string) (string, error) {
