@@ -47,7 +47,7 @@ This is the merged behaviour. Paths and field names do not change.
 - The server links a session token to a participant id and an alias, and to nothing that names a person.
 - Join also returns `id`, a number that identifies the participant within the room: `{"id":1,"alias":"Blue Fox","token":"..."}`.
 - The alias stays the same for one session token. A new join creates a new participant, so a client keeps its token to keep its alias (Q13). The API addresses participants by `id`.
-- Aliases are unique within a room. An alias is a colour and an animal, from a list of 40 colours and 40 animals: 1,600 aliases. An alias stays used and is never freed, also after a kick. When none is left, join returns `409` with the text `no aliases left`. The other `409` on join, for a room that is not open, keeps its merged text `room is not open`. The ticket "Unique aliases within a room" (QAAT-20) adds uniqueness and the new response; the code merged so far has 100 aliases and can repeat them.
+- Aliases are unique within a room. An alias is a colour and an animal, from a list of 40 colours and 40 animals: 1,600 aliases. An alias stays used and is never freed, also after a kick. When none is left, join returns `409` with the text `no aliases left`. The other `409` on join, for a room that is not open, keeps its merged text `room is not open`. The ticket "Unique aliases within a room" (QAAT-20) adds uniqueness and the new response.
 
 **When.** Slice 3 adds `hostToken`, `token` and `id`. These response fields are additive. Slice 3 uses the host token where the host needs its own view, such as reading the posts. Host-only endpoints added by later slices require it from the start.
 
