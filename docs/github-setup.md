@@ -15,8 +15,10 @@ Create two fine-grained personal access tokens, both limited to this one reposit
 
 The gate token is exported only in the shell that starts the gate: `export GATE_GITHUB_TOKEN=...`. Never put either token in the repository, in `.env.example` or in a file mounted into the sandbox.
 
-## Ruleset on `main`
-Settings, Rules, Rulesets, new branch ruleset targeting `main`:
+`scripts/setup.sh` checks both tokens and creates the ruleset and the gate service for you; this page explains what it sets up.
+
+## Ruleset on the default branch and `main`
+Settings, Rules, Rulesets, new branch ruleset named `gate`, targeting the default branch (`~DEFAULT_BRANCH`) and `main`, so it follows the project branch when you switch the default:
 - Restrict deletions, block force pushes.
 - Require a pull request before merging.
 - Require status checks to pass: add the status `gate`.
