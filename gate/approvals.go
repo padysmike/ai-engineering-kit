@@ -241,18 +241,53 @@ func runApprovals(cmd string, args []string, out io.Writer) int {
 	fs.SetOutput(out)
 	state := fs.String("state", defaultStateDir(), "directory that holds approval requests")
 	reason := fs.String("reason", "", "reason shown to the agent when denying")
-	if err := fs.Parse(args); err != nil {
+	refs, err := parseInAnyOrder(fs, args)
+	if err != nil {
+		return exitError
+	}
+	if err := checkApprovalArguments(cmd, refs, *reason); err != nil {
+		say(out, "gate: %v\n", err)
 		return exitError
 	}
 	store := approvalStore{dir: *state}
+	ref := strings.Join(refs, "")
 	switch cmd {
 	case "approvals":
 		return listApprovals(store, out)
 	case "approve":
-		return decideApproval(store, fs.Arg(0), stateApproved, "", out)
+		return decideApproval(store, ref, stateApproved, "", out)
 	default:
-		return decideApproval(store, fs.Arg(0), stateDenied, *reason, out)
+		return decideApproval(store, ref, stateDenied, *reason, out)
 	}
+}
+
+// parseInAnyOrder also reads the flags written after an argument. The flag
+// package stops at the first argument and would silently drop them.
+func parseInAnyOrder(flags *flag.FlagSet, args []string) ([]string, error) {
+	var positional []string
+	for {
+		if err := flags.Parse(args); err != nil {
+			return nil, err
+		}
+		if flags.NArg() == 0 {
+			return positional, nil
+		}
+		positional = append(positional, flags.Arg(0))
+		args = flags.Args()[1:]
+	}
+}
+
+func checkApprovalArguments(cmd string, refs []string, reason string) error {
+	if cmd == "approvals" && len(refs) > 0 {
+		return fmt.Errorf("approvals takes no branch or pull request, got %q", refs)
+	}
+	if len(refs) > 1 {
+		return fmt.Errorf("name one branch or pull request number, got %q; put a reason with spaces in quotes", refs)
+	}
+	if cmd != "deny" && reason != "" {
+		return fmt.Errorf("--reason only applies to deny")
+	}
+	return nil
 }
 
 func listApprovals(store approvalStore, out io.Writer) int {

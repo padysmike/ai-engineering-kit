@@ -60,8 +60,6 @@ The agent may object, because `AGENTS.md` forbids the edit. That is the soft rul
     $STATE/approve.sh approvals
     $STATE/approve.sh deny --reason "the scenario must keep checking the body" <PR>
 
-Put `--reason` before the pull request number: written after it, the reason is silently lost.
-
 Ask the agent to call `gate_merge` again. It gets `BLOCKED` with your reason. Close the pull request.
 
 ## Fallbacks
