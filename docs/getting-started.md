@@ -62,5 +62,6 @@ The default branch must always be green: the gate requires a pass for every test
 - So whatever is on the project branch when you start is the approved baseline. Remove what you do not want (for example the health scenario) through a pull request you approve, before the real work starts.
 - To relax the gate for a while, a human can turn single checks off: `approve.sh checks`, `approve.sh disable lint`, `approve.sh enable lint` (see `gate/README.md`).
 - Coverage: 70 percent total, 80 percent of changed lines. Ask the agent to run `make check` before `open-pr`.
+- `approved tests missing on head: rebase onto <base>`: the base gained tests since the branch split off. Rebase, push and run the gate again.
 - A red default branch blocks every pull request. Never merge red scenarios.
 - Inside some sandboxes `make check` cannot pass the gate's own tests (a git wrapper that refuses pushes to `main`, even to a throwaway local repository). The gate's container is the authority.

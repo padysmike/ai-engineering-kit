@@ -19,6 +19,7 @@ const (
 	defaultProtected = "Makefile,scripts/,gate/,skills/,.claude/,.github/,.golangci.yml,AGENTS.md,CLAUDE.md"
 	checkTimeout     = 10 * time.Minute
 	detailLines      = 6
+	detailIndent     = "           "
 	trustedMakefile  = "Makefile"
 	trustedScripts   = "scripts"
 
@@ -40,6 +41,7 @@ type options struct {
 	allowProtected   bool
 	merge            bool
 	label            string
+	baseLabel        string
 	prNumber         int
 	approvals        *approvalStore
 	notify           io.Writer
@@ -66,6 +68,13 @@ func (o options) name() string {
 		return o.label
 	}
 	return o.branch
+}
+
+func (o options) baseName() string {
+	if o.baseLabel != "" {
+		return o.baseLabel
+	}
+	return o.base
 }
 
 type change struct {
@@ -177,13 +186,22 @@ func evaluate(o options) (outcome, error) {
 	}
 	changes := parseDiff(raw)
 
-	results := []result{checkProtected(changes, o), checkImmutable(changes, o), checkTestMain(o, baseSHA, branchSHA)}
-	results = append(results, runTargets(o, baseSHA, branchSHA)...)
+	results := branchResults(o, changes, baseSHA, branchSHA)
 	oc := requestApproval(o, outcome{results: results, sha: branchSHA})
 	if o.merge && allOK(oc.results) {
 		oc.results = append(oc.results, doMerge(o, branchSHA))
 	}
 	return oc, nil
+}
+
+// A branch that lacks tests of the base fails before the slow checks, and first
+// in the list, so that the GitHub status says why.
+func branchResults(o options, changes []change, baseSHA, branchSHA string) []result {
+	rules := []result{checkProtected(changes, o), checkImmutable(changes, o), checkTestMain(o, baseSHA, branchSHA)}
+	if behind, found := behindBase(o, baseSHA, branchSHA); found {
+		return append([]result{behind}, rules...)
+	}
+	return append(rules, runTargets(o, baseSHA, branchSHA)...)
 }
 
 func report(out io.Writer, o options, oc outcome) int {
@@ -216,7 +234,7 @@ func printResult(out io.Writer, p painter, r result) {
 	}
 	say(out, "  %s %s\n", p.red("[FAIL]"), r.name)
 	for _, line := range r.detail {
-		say(out, "           %s\n", line)
+		say(out, "%s%s\n", detailIndent, strings.ReplaceAll(line, "\n", "\n"+detailIndent))
 	}
 }
 

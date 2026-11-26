@@ -10,6 +10,13 @@ A small Go program that decides whether a branch may be merged into `main`.
 - It blocks when a branch modifies, renames or deletes an approved test or scenario (`scenarios/`, `*_test.go`). Adding new ones is allowed.
 - With `--merge` it merges (`--no-ff`) only if every check passes.
 
+## A branch behind its base
+The gate checks the branch as it is. It does not merge the base into it first, yet every test and scenario on the base must report a pass. So when the base gained tests after the branch split off, and the branch lacks them, the gate fails at once, without running the make targets:
+
+    [FAIL] 7 approved tests missing on head: rebase onto test
+
+Rebase the branch onto that base, push and run the gate again. A branch that is only behind, with no tests missing, is checked as usual. Disabling `approved-tests-pass` turns this check off too.
+
 ## Check image
 Build the image the checks run in once, and rebuild it when the Go or linter version changes:
 

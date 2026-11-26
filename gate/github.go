@@ -212,6 +212,7 @@ func (o prOptions) gateOptions(prNumber int) (options, error) {
 		base:             o.remote + "/" + o.base,
 		branch:           o.remote + "/" + o.branch,
 		label:            o.branch,
+		baseLabel:        o.base,
 		targets:          splitList(o.targets),
 		protected:        splitList(defaultProtected),
 		allowTestChanges: o.allowTestChanges,
