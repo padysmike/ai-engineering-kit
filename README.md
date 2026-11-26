@@ -18,7 +18,7 @@ Materials for the lecture "Ze života developera v AI době" (a day in the life 
     cd ai-engineering-kit
     scripts/setup.sh
 
-The script walks you through everything: your own copy of the repository, a project branch, the GitHub ruleset, two tokens, the merge gate and the MCP connection for your agent. Run it again at any time; `scripts/setup.sh --check` only reports what is missing. Then read `docs/getting-started.md`.
+The script walks you through everything: your own copy of the repository, a project branch, the GitHub ruleset, two tokens, the merge gate and the MCP connections for your agent: the gate and, if you like, a tracker (Linear by default, or Jira). Run it again at any time; `scripts/setup.sh --check` only reports what is missing. Then read `docs/getting-started.md`.
 
 `main` holds the kit. Your product lives on its own project branch, which setup makes the default branch.
 

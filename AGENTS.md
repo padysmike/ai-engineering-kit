@@ -13,7 +13,7 @@ Instructions for any AI coding agent working in this repository.
 The base branch is the repository's default branch on GitHub: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`. Branch from its latest commit and open pull requests against it. `main` is the kit's source; target it only when it is the default branch.
 
 ## Rules
-- One ticket = one branch (`ticket-<id>-<slug>`) = one pull request. Never commit to the base branch or to `main`.
+- One ticket = one branch (`ticket-<id>-<slug>`) = one pull request. `<id>` is the issue key if you use a tracker. Never commit to the base branch or to `main`.
 - Never merge. The gate (`gate/`) merges, run by a human on the host.
 - Do not edit approved scenarios in `scenarios/` or existing tests. Adding new ones is fine.
 - Do not edit `Makefile`, `scripts/`, `gate/`, `skills/`, `.golangci.yml`, `.github/`, `AGENTS.md`, `CLAUDE.md`. If you think they need a change, ask a human.

@@ -31,7 +31,7 @@ The script walks you through every step and skips what is already done. `scripts
 5. **Check image** `ai-engineering-checks`, in which the gate runs every check without network or secrets.
 6. **Where your agent runs**: on this machine, or in a Docker sandbox (the gate then listens on the Docker bridge; a firewall may need a rule, the script prints it).
 7. **The gate**: its own checkout and binary, plus three helper scripts, all in `~/.ai-engineering-kit/<owner>__<repo>/`, outside the repository.
-8. **MCP**: registers the gate in Claude Code for this project; Jira (Atlassian) is optional.
+8. **MCP**: registers the gate in Claude Code for this project. It also offers a tracker: Linear (the default), Jira, or none. Log in once with `/mcp`.
 
 Everything secret stays in `~/.ai-engineering-kit/`. If your agent runs in a sandbox, do not mount that directory into it.
 
@@ -39,7 +39,7 @@ Everything secret stays in `~/.ai-engineering-kit/`. If your agent runs in a san
     ~/.ai-engineering-kit/<owner>__<repo>/start-gate.sh          # terminal 1, leave it running
     ~/.ai-engineering-kit/<owner>__<repo>/agent-env.sh claude    # terminal 2, in the repository
 
-`agent-env.sh` runs the agent with only the agent token. In a sandbox, pass the agent token as `GITHUB_TOKEN` instead. In Claude, `/mcp` must show `gate` as connected (and `atlassian` if you use Jira).
+`agent-env.sh` runs the agent with only the agent token. In a sandbox, pass the agent token as `GITHUB_TOKEN` instead. In Claude, `/mcp` must show `gate` as connected, and your tracker if you use one (`linear`, or `atlassian` for Jira).
 
 If your git remote uses SSH, pushes go through your own SSH key, not the agent token. The ruleset still protects the default branch and `main`; switch the remote to HTTPS if you want the token to be the only credential.
 
@@ -51,10 +51,10 @@ The default branch must always be green: the gate requires a pass for every test
 1. **Product.** Write `docs/product.md` (agent drafts, humans edit). Branch `ticket-0-product`, pull request, the agent calls `gate_merge`. Docs only, so every check passes: the first, boring, green merge.
 2. **Spec.** `write-spec` turns the product into `scenarios/*.feature`, `write-steps` adds `app/*_steps_test.go`. `make bdd` is red, as intended. Push as a **draft** pull request: this is where humans review and agree on the requirements. Do not merge it.
 3. **Decisions.** `record-decision` for anything costly to change (storage, API shape). ADRs can merge on their own (docs only).
-4. **Roadmap.** `plan-roadmap` reads the spec branch and creates epics and tickets in Jira (tell it the project key), or writes `docs/roadmap.md` without Jira. Each ticket carries its scenarios verbatim. Keep one ticket = one feature file, so a ticket can add its whole file and make it green. Close the spec pull request.
-5. **Implement.** Per ticket: `implement-ticket` (branch from the default branch, add the ticket's `.feature`, steps and code, `make check` green), then `open-pr`.
+4. **Roadmap.** `plan-roadmap` reads the spec branch and creates the plan in your tracker (tell it which project), or writes `docs/roadmap.md` without one. In Linear, that is one project with the milestones PoC and MVP; in Jira, epics for the same phases. Each issue carries its feature file word for word. Keep one issue = one feature file, so a ticket can add its whole file and make it green. Close the spec pull request.
+5. **Implement.** Per ticket: `implement-ticket` (the issue moves to In Progress; branch from the default branch, add the ticket's `.feature`, steps and code, `make check` green), then `open-pr` (the issue gets the PR link). The issue key is the `<id>` in the branch name.
 6. **Review.** The `review` skill on the pull request, ideally by a second agent.
-7. **Gate.** The agent calls `gate_merge` with the branch name. The gate checks in a container, posts the status `gate` and merges. Watch the gate's terminal.
+7. **Gate.** The agent calls `gate_merge` with the branch name. The gate checks in a container, posts the status `gate` and merges. Watch the gate's terminal. After the merge, the agent sets the issue to Done.
 8. **The hard rule.** Ask the agent to "fix" an existing scenario (for example `health.feature`). The gate answers `NEEDS APPROVAL`. You decide: `approve.sh approvals`, then `approve.sh approve <PR>` or `approve.sh deny <PR> --reason "..."`.
 
 ## When the gate blocks

@@ -48,7 +48,6 @@ ask_secret() {
   printf '\n' > "$TTY_OUT"
   printf '%s' "$answer" | tr -d '[:space:]'
 }
-confirm() { case "$(ask "$1 (y/n)" "${2:-y}")" in y|Y|yes) return 0 ;; *) return 1 ;; esac; }
 
 # owner/repo of a GitHub remote URL (https or ssh form)
 slug_of() {
@@ -297,8 +296,27 @@ EOF
   ok "gate built from $BRANCH into $STATE"
 }
 
+add_tracker() { # add_tracker NAME URL
+  claude mcp add --scope local --transport http "$1" "$2" > /dev/null
+  ok "registered the tracker ($1); log in once: start claude here, type /mcp, choose $1"
+}
+
+tracker() {
+  local name
+  for name in linear atlassian; do
+    if claude mcp get "$name" > /dev/null 2>&1; then ok "Claude Code knows a tracker ($name)"; return; fi
+  done
+  say "A tracker is optional: without one, plan-roadmap writes docs/roadmap.md instead."
+  if checking; then return; fi
+  case "$(ask "Connect a tracker now? linear, jira or none" linear)" in
+    linear) add_tracker linear https://mcp.linear.app/mcp ;;
+    jira) add_tracker atlassian https://mcp.atlassian.com/v2/mcp ;;
+    *) say "no tracker connected; run scripts/setup.sh again to add one" ;;
+  esac
+}
+
 mcp_clients() {
-  step "Connect your agent to the gate (and optionally Jira)"
+  step "Connect your agent to the gate (and optionally a tracker)"
   if ! command -v claude > /dev/null; then
     open_step "Claude Code not found; register this MCP server in your agent yourself:"
     say "  URL $URL, transport HTTP, header 'Authorization: Bearer <contents of $SECRETS/gate-mcp-token>'"
@@ -313,12 +331,7 @@ mcp_clients() {
       ok "registered the gate in Claude Code for this project"
     fi
   fi
-  if claude mcp get atlassian > /dev/null 2>&1; then ok "Claude Code knows Jira (atlassian)"; return; fi
-  say "Jira is optional: without it, plan-roadmap writes docs/roadmap.md instead."
-  if ! checking && confirm "Connect Jira (Atlassian Cloud) now?" n; then
-    claude mcp add --scope local --transport http atlassian https://mcp.atlassian.com/v1/mcp > /dev/null
-    ok "registered Jira; log in once: start claude here, type /mcp, choose atlassian"
-  fi
+  tracker
 }
 
 summary() {
