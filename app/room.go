@@ -33,14 +33,20 @@ type room struct {
 }
 
 type roomStore struct {
-	mu       sync.Mutex
-	byCode   map[string]room
-	newCode  func() string
-	newAlias func() string
+	mu          sync.Mutex
+	byCode      map[string]room
+	subscribers map[string]map[subscriber]struct{}
+	newCode     func() string
+	newAlias    func() string
 }
 
 func newRoomStore(newCode func() string) *roomStore {
-	return &roomStore{byCode: map[string]room{}, newCode: newCode, newAlias: randomAlias}
+	return &roomStore{
+		byCode:      map[string]room{},
+		subscribers: map[string]map[subscriber]struct{}{},
+		newCode:     newCode,
+		newAlias:    randomAlias,
+	}
 }
 
 func randomRoomCode() string { return rand.Text()[:roomCodeLength] }
@@ -95,6 +101,7 @@ func (s *roomStore) join(code string) (participant, error) {
 	found.participants = append(found.participants, joined)
 	found.usedAliases = append(found.usedAliases, alias)
 	s.byCode[code] = found
+	s.publishLocked(code, eventRoom, viewOfRoom(found))
 	return joined, nil
 }
 
@@ -110,5 +117,6 @@ func (s *roomStore) transition(code string, from, to roomState) (room, error) {
 	}
 	found.state = to
 	s.byCode[code] = found
+	s.publishLocked(code, eventRoom, viewOfRoom(found))
 	return found, nil
 }

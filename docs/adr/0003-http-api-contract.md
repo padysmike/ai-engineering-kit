@@ -116,8 +116,8 @@ No response or event contains a session token, apart from the join response that
 - Events follow the same visibility rules as the feed.
 - The server registers the subscriber and takes the snapshot atomically, so no change falls between them. A client reconnects after any disconnect and replaces its state with the new snapshot. There is no event replay.
 - The client applies the sort rules above to its own copy, so an event does not depend on a viewer's sort order.
-- Publishing never waits for a subscriber. The server closes a stream that falls too far behind, and the client reconnects.
-- The server sends periodic comment lines to keep idle streams open. It must not set an HTTP write timeout that cuts streams off.
+- Publishing never waits for a subscriber. The server closes a stream that falls too far behind (256 waiting events, or one write that takes over 10 s), and the client reconnects.
+- The server sends a comment line every 15 s to keep idle streams open. It must not set an HTTP write timeout that cuts streams off.
 - The browser reads the stream with `fetch`, because `EventSource` cannot send an `Authorization` header. The client therefore does its own reconnecting.
 
 ### Status codes

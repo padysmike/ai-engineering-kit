@@ -94,11 +94,7 @@ func feedHandler(rooms *roomStore) http.HandlerFunc {
 			return
 		}
 		slices.SortFunc(found.posts, order)
-		feed := feedView{Posts: make([]postView, 0, len(found.posts))}
-		for _, p := range found.posts {
-			feed.Posts = append(feed.Posts, viewOfPost(p))
-		}
-		writeJSON(w, http.StatusOK, feed)
+		writeJSON(w, http.StatusOK, feedView{Posts: viewsOfPosts(found.posts)})
 	}
 }
 
@@ -151,6 +147,14 @@ func bearerToken(r *http.Request) string {
 		return ""
 	}
 	return token
+}
+
+func viewsOfPosts(posts []post) []postView {
+	views := make([]postView, 0, len(posts))
+	for _, p := range posts {
+		views = append(views, viewOfPost(p))
+	}
+	return views
 }
 
 func viewOfPost(p post) postView {
