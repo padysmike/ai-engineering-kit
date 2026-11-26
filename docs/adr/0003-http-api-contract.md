@@ -47,7 +47,7 @@ This is the merged behaviour. Paths and field names do not change.
 - The server links a session token to a participant id and an alias, and to nothing that names a person.
 - Join also returns `id`, a number that identifies the participant within the room: `{"id":1,"alias":"Blue Fox","token":"..."}`.
 - The alias stays the same for one session token. A new join creates a new participant, so a client keeps its token to keep its alias (Q13). The API addresses participants by `id`.
-- Aliases are unique within a room. An alias is a colour and an animal, from a list of 32 colours and 32 animals: 1,024 aliases. An alias stays taken for the life of the room, also after a kick, because the participant's posts keep it. When all are taken, join returns `409`. The ticket "Unique aliases within a room" (QAAT-20) adds this; the code merged so far has 100 aliases and can repeat them.
+- Aliases are unique within a room. An alias is a colour and an animal, from a list of 40 colours and 40 animals: 1,600 aliases. An alias stays used and is never freed, also after a kick. When none is left, join returns `409` with the text `no aliases left`. The other `409` on join, for a room that is not open, keeps its merged text `room is not open`. The ticket "Unique aliases within a room" (QAAT-20) adds uniqueness and the new response; the code merged so far has 100 aliases and can repeat them.
 
 **When.** Slice 3 adds `hostToken`, `token` and `id`. These response fields are additive. Slice 3 uses the host token where the host needs its own view, such as reading the posts. Host-only endpoints added by later slices require it from the start.
 
@@ -76,8 +76,9 @@ This is the merged behaviour. Paths and field names do not change.
 - Text may be at most 280 characters, counted as Unicode code points (Q14). Whether empty text is accepted is undecided (Q14).
 - A request body for a new post may be at most 4096 bytes, which fits 280 characters in any JSON escaping. A larger body is `400`.
 - A closed room rejects new posts, new votes and vote removal. Its feed stays readable to earlier participants.
-- `sort=newest` is descending `id`. `sort=top` puts pinned posts first; then it orders by descending `votes`, with ties oldest first (ascending `id`). Pinned posts are ordered among themselves by the same two rules. Without `sort`, the order is `newest`. Slice 6 brings the sort orders and this default; the code merged so far returns the oldest post first.
-- Pinning changes only the `top` order, not `newest`. Marking as answered does not change the order (Q18). Neither mark can be undone (Q18).
+- Both orders put pinned posts first. Within the pinned posts, and within the others, the normal order applies: `sort=newest` is descending `id`; `sort=top` is descending `votes`, with ties oldest first (ascending `id`). Without `sort`, the order is `newest`.
+- The code merged so far returns the oldest post first. Slice 6 (QAAT-9) switches it to `newest` and adds the `sort` parameter. Pinning comes with slice 12.
+- Marking as answered does not change the order (Q18). Neither mark can be undone (Q18).
 - Whether participants may vote for their own posts is undecided (Q16).
 - Votes are exposed as a count only, never as who voted (Q2).
 
@@ -160,7 +161,7 @@ Slices 1 to 7, with the alias ticket, are the PoC. Slices 11 and 12 also send th
 - Two rules run in the browser, so scenario steps have to play the client and do not test the page's code: ordering the live feed (slice 10), and the join that follows opening the QR URL (slice 8). Both need a manual check.
 - Until the enforcement ticket is merged, anyone who knows a room code can open or close that room. Losing the host token means losing control of the actions that require it.
 - The tokens are not user authentication. Anyone can create rooms, and anyone who knows the code of an open room can join, any number of times. So a kick or an expired QR token does not keep a person out, and one person can vote more than once by joining again.
-- Every join takes one of the 1,024 aliases and none is freed. That covers 500 participants with room for 524 more joins; after that nobody else can join the room. Since anyone with the code can join repeatedly, one person can use them all up.
+- Every join takes one of the 1,600 aliases and none is freed. That covers 500 participants with room for 1,100 more joins; after that nobody else can join the room. Since anyone with the code can join repeatedly, one person can use them all up.
 - The per-device rate limit (Q4) and profanity filter (Q5) are not in this contract.
 - Rooms, tokens and subscribers live in the memory of one process. A restart loses them, and running several instances would need a different design (Q3).
 - 500 users within 1 s is not verified (Q19). A change in a room of 500 means about 500 small writes, but many votes at once multiply that, and a reconnect of everyone sends 500 snapshots. A load test has to confirm it.
