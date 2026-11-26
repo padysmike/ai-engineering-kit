@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/cucumber/godog"
 )
@@ -17,10 +18,12 @@ import (
 type posting struct {
 	host         *roomHost
 	attendees    map[string]participantView
+	mu           sync.Mutex
 	hostTokens   map[string]string
 	dataToHost   bytes.Buffer
 	shown        postView
 	roomsHandler http.Handler
+	submitStatus int
 }
 
 var postings = perScenario[posting]{}
@@ -34,20 +37,90 @@ func postingFor(sc *godog.ScenarioContext) *posting {
 }
 
 func (p *posting) recordDataToHost(w http.ResponseWriter, r *http.Request) {
-	rec := httptest.NewRecorder()
-	p.roomsHandler.ServeHTTP(rec, r)
-	if p.isFromHost(r) {
-		fmt.Fprintln(&p.dataToHost, rec.Header(), rec.Body.String())
+	fromHost := p.isFromHost(r)
+	var created bytes.Buffer
+	record := func(data []byte) {
+		if fromHost {
+			p.recordSentToHost(data)
+		}
 	}
+	tee := &teeWriter{
+		ResponseWriter: w,
+		onHeaders:      func(header http.Header) { record([]byte(fmt.Sprintln(header))) },
+		onBody: func(data []byte) {
+			record(data)
+			if r.URL.Path == "/rooms" {
+				created.Write(data)
+			}
+		},
+	}
+	p.roomsHandler.ServeHTTP(tee, r)
+	tee.recordHeadersOnce()
+	p.keepHostToken(created.Bytes())
+}
+
+type teeWriter struct {
+	http.ResponseWriter
+	onHeaders       func(http.Header)
+	onBody          func([]byte)
+	headersRecorded bool
+}
+
+func (t *teeWriter) recordHeadersOnce() {
+	if !t.headersRecorded {
+		t.headersRecorded = true
+		t.onHeaders(t.Header())
+	}
+}
+
+func (t *teeWriter) WriteHeader(status int) {
+	t.recordHeadersOnce()
+	t.ResponseWriter.WriteHeader(status)
+}
+
+func (t *teeWriter) Write(data []byte) (int, error) {
+	t.recordHeadersOnce()
+	t.onBody(data)
+	written, err := t.ResponseWriter.Write(data)
+	t.Flush()
+	return written, err
+}
+
+func (t *teeWriter) Flush() {
+	t.recordHeadersOnce()
+	if flusher, ok := t.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (t *teeWriter) Unwrap() http.ResponseWriter { return t.ResponseWriter }
+
+func (p *posting) recordSentToHost(data []byte) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.dataToHost.Write(data)
+}
+
+func (p *posting) sentToHost() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.dataToHost.String()
+}
+
+func (p *posting) keepHostToken(response []byte) {
 	var created createdRoomView
-	if r.URL.Path == "/rooms" && json.Unmarshal(rec.Body.Bytes(), &created) == nil {
-		p.hostTokens[created.Code] = created.HostToken
+	if json.Unmarshal(response, &created) != nil {
+		return
 	}
-	for name, values := range rec.Header() {
-		w.Header()[name] = values
-	}
-	w.WriteHeader(rec.Code)
-	_, _ = w.Write(rec.Body.Bytes())
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.hostTokens[created.Code] = created.HostToken
+}
+
+func (p *posting) hostToken(roomCode string) string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.hostTokens[roomCode]
 }
 
 func (p *posting) isFromHost(r *http.Request) bool {
@@ -55,23 +128,30 @@ func (p *posting) isFromHost(r *http.Request) bool {
 	if token == "" {
 		return !strings.HasSuffix(r.URL.Path, "/participants")
 	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	return slices.Contains(slices.Collect(maps.Values(p.hostTokens)), token)
 }
 
 func (p *posting) call(method, path, token, body string, wantStatus int, response any) error {
+	rec := p.send(method, path, token, body)
+	if rec.Code != wantStatus {
+		return fmt.Errorf("%s %s: status = %d, want %d", method, path, rec.Code, wantStatus)
+	}
+	if err := json.NewDecoder(rec.Body).Decode(response); err != nil {
+		return fmt.Errorf("%s %s: decode response: %w", method, path, err)
+	}
+	return nil
+}
+
+func (p *posting) send(method, path, token, body string) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(method, "/rooms/"+p.host.rooms[0].Code+path, strings.NewReader(body))
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
 	rec := httptest.NewRecorder()
 	p.host.server.ServeHTTP(rec, request)
-	if rec.Code != wantStatus {
-		return fmt.Errorf("%s %s: status = %d, want %d", method, request.URL.Path, rec.Code, wantStatus)
-	}
-	if err := json.NewDecoder(rec.Body).Decode(response); err != nil {
-		return fmt.Errorf("%s %s: decode response: %w", method, request.URL.Path, err)
-	}
-	return nil
+	return rec
 }
 
 func (p *posting) attendee(name string) (participantView, error) {
@@ -97,7 +177,8 @@ func (p *posting) submit(name, text string) error {
 		return err
 	}
 	body := `{"text":` + strconv.Quote(text) + `}`
-	return p.call(http.MethodPost, "/posts", author.Token, body, http.StatusCreated, &postView{})
+	p.submitStatus = p.send(http.MethodPost, "/posts", author.Token, body).Code
+	return nil
 }
 
 func (p *posting) feed(token string) ([]postView, error) {
@@ -143,7 +224,7 @@ func (p *posting) expectShownAlias(name string) error {
 }
 
 func (p *posting) expectSeenByHost(text, name string) error {
-	posts, err := p.feed(p.hostTokens[p.host.rooms[0].Code])
+	posts, err := p.feed(p.hostToken(p.host.rooms[0].Code))
 	if err != nil {
 		return err
 	}
@@ -158,7 +239,7 @@ func (p *posting) expectNoSessionTokenSentToHost(name string) error {
 	if err != nil {
 		return err
 	}
-	sent := p.dataToHost.String()
+	sent := p.sentToHost()
 	if !strings.Contains(sent, p.shown.Text) {
 		return fmt.Errorf("data sent to the host %q lacks the post it was shown", sent)
 	}

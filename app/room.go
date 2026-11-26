@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"errors"
+	"slices"
 	"sync"
 )
 
@@ -61,7 +62,13 @@ func (s *roomStore) find(code string) (room, error) {
 	if !ok {
 		return room{}, errRoomNotFound
 	}
-	return found, nil
+	return found.snapshot(), nil
+}
+
+func (r room) snapshot() room {
+	r.participants = slices.Clone(r.participants)
+	r.posts = slices.Clone(r.posts)
+	return r
 }
 
 func (s *roomStore) join(code string) (participant, error) {

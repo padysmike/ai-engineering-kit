@@ -73,6 +73,7 @@ This is the merged behaviour. Paths and field names do not change.
 
 **Posts.** A post is `{"id":7,"alias":"Blue Fox","text":"...","votes":2}`. Slice 11 adds `hidden`, in host responses only. Slice 12 adds `pinned` and `answered`. `id` is a number that increases with each new post in the room.
 - Text may be at most 280 characters, counted as Unicode code points (Q14). Whether empty text is accepted is undecided (Q14).
+- A request body for a new post may be at most 4096 bytes, which fits 280 characters in any JSON escaping. A larger body is `400`.
 - A closed room rejects new posts, new votes and vote removal. Its feed stays readable to earlier participants.
 - `sort=newest` is descending `id`. `sort=top` is descending `votes`, with ties in ascending `id` (Q17). Without `sort`, the order is `top` (Q17).
 - Pinning and marking as answered do not change the order (Q18). Neither can be undone (Q18).
