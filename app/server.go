@@ -15,7 +15,9 @@ func newServer() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
-	registerRoomRoutes(mux, newRoomStore(randomRoomCode))
+	rooms := newRoomStore(randomRoomCode)
+	registerRoomRoutes(mux, rooms)
+	registerPostRoutes(mux, rooms)
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
 		panic(err)

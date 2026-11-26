@@ -23,9 +23,11 @@ var (
 )
 
 type room struct {
-	code    string
-	state   roomState
-	aliases []string
+	code         string
+	state        roomState
+	hostToken    string
+	participants []participant
+	posts        []post
 }
 
 type roomStore struct {
@@ -47,7 +49,7 @@ func (s *roomStore) create() room {
 	for _, taken := s.byCode[code]; taken; _, taken = s.byCode[code] {
 		code = s.newCode()
 	}
-	created := room{code: code, state: roomDraft}
+	created := room{code: code, state: roomDraft, hostToken: rand.Text()}
 	s.byCode[code] = created
 	return created
 }
@@ -62,20 +64,20 @@ func (s *roomStore) find(code string) (room, error) {
 	return found, nil
 }
 
-func (s *roomStore) join(code string) (string, error) {
+func (s *roomStore) join(code string) (participant, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	found, ok := s.byCode[code]
 	if !ok {
-		return "", errRoomNotFound
+		return participant{}, errRoomNotFound
 	}
 	if found.state != roomOpen {
-		return "", errRoomNotOpen
+		return participant{}, errRoomNotOpen
 	}
-	alias := randomAlias()
-	found.aliases = append(found.aliases, alias)
+	joined := participant{id: len(found.participants) + 1, alias: randomAlias(), token: rand.Text()}
+	found.participants = append(found.participants, joined)
 	s.byCode[code] = found
-	return alias, nil
+	return joined, nil
 }
 
 func (s *roomStore) transition(code string, from, to roomState) (room, error) {
