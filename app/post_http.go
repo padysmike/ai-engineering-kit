@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 )
+
+const maxPostBodyBytes = 4096
 
 type newPostRequest struct {
 	Text string `json:"text"`
@@ -34,9 +37,9 @@ func submitPostHandler(rooms *roomStore) http.HandlerFunc {
 			writeRoomError(w, err)
 			return
 		}
-		var request newPostRequest
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			http.Error(w, "malformed JSON", http.StatusBadRequest)
+		request, err := decodeNewPost(w, r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		added, err := rooms.addPost(code, author.alias, request.Text)
@@ -48,12 +51,32 @@ func submitPostHandler(rooms *roomStore) http.HandlerFunc {
 	}
 }
 
+func decodeNewPost(w http.ResponseWriter, r *http.Request) (newPostRequest, error) {
+	var request newPostRequest
+	err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxPostBodyBytes)).Decode(&request)
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return request, errors.New("request body is too large")
+	}
+	if err != nil {
+		return request, errors.New("malformed JSON")
+	}
+	return request, nil
+}
+
 func authorOfRequest(rooms *roomStore, code, token string) (participant, error) {
 	found, err := rooms.find(code)
 	if err != nil {
 		return participant{}, err
 	}
-	return found.participantByToken(token)
+	author, err := found.participantByToken(token)
+	if err != nil {
+		return participant{}, err
+	}
+	if found.state != roomOpen {
+		return participant{}, errRoomNotOpen
+	}
+	return author, nil
 }
 
 func feedHandler(rooms *roomStore) http.HandlerFunc {

@@ -3,11 +3,15 @@ package main
 import (
 	"errors"
 	"slices"
+	"unicode/utf8"
 )
+
+const maxPostCharacters = 280
 
 var (
 	errUnknownToken   = errors.New("token is missing or unknown")
 	errNotParticipant = errors.New("only a participant can do this")
+	errPostTooLong    = errors.New("post is longer than 280 characters")
 )
 
 type participant struct {
@@ -46,6 +50,12 @@ func (s *roomStore) addPost(code, alias, text string) (post, error) {
 	found, ok := s.byCode[code]
 	if !ok {
 		return post{}, errRoomNotFound
+	}
+	if found.state != roomOpen {
+		return post{}, errRoomNotOpen
+	}
+	if utf8.RuneCountInString(text) > maxPostCharacters {
+		return post{}, errPostTooLong
 	}
 	added := post{id: len(found.posts) + 1, alias: alias, text: text}
 	found.posts = append(found.posts, added)
