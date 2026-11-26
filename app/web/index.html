@@ -1,5 +1,64 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Product skeleton</title></head>
-<body><h1>Product skeleton</h1><p>Replace this page with the product built from the scenarios.</p></body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+  <title>Live Q&amp;A</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Live Q&amp;A</h1>
+    <noscript><p>This app needs JavaScript.</p></noscript>
+    <p id="error" role="alert" hidden></p>
+
+    <section id="home" hidden>
+      <form id="join-form">
+        <h2>Join a room</h2>
+        <label for="join-code">6-character room code</label>
+        <input id="join-code" required pattern="[A-Za-z2-7]{6}" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button type="submit">Join</button>
+      </form>
+      <div>
+        <h2>Host a room</h2>
+        <button type="button" id="create-room">Create room</button>
+      </div>
+    </section>
+
+    <section id="room" hidden>
+      <div>
+        <p>Room code <strong id="room-code"></strong></p>
+        <p>State: <span id="room-state"></span> · Participants: <span id="participant-count"></span></p>
+      </div>
+
+      <div id="host-controls" class="row">
+        <button type="button" id="open-room">Open room</button>
+        <button type="button" id="close-room">Close room</button>
+      </div>
+
+      <form id="post-form">
+        <p>You are <strong id="alias"></strong></p>
+        <label for="post-text">Your question or comment</label>
+        <textarea id="post-text" rows="3"></textarea>
+        <p id="post-length" aria-live="polite"></p>
+        <button type="submit">Post</button>
+      </form>
+
+      <div class="row">
+        <label for="sort">Sort by</label>
+        <select id="sort">
+          <option value="newest">Newest</option>
+          <option value="top">Top</option>
+        </select>
+        <button type="button" id="reload">Reload</button>
+      </div>
+      <p id="empty-feed" hidden>No posts yet.</p>
+      <ul id="feed"></ul>
+
+      <button type="button" id="leave" class="secondary">Leave room</button>
+    </section>
+  </main>
+</body>
 </html>
