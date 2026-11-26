@@ -1,6 +1,6 @@
 # 0003. HTTP JSON API with Server-Sent Events for the PoC and MVP
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-26
 
 ## Context
@@ -34,7 +34,7 @@ This is the merged behaviour. Paths and field names do not change.
 - A code is 6 characters from `A`-`Z` and `2`-`7`, matched case-sensitively (Q8).
 - An error body is plain text (`text/plain; charset=utf-8`), for example `room not found`.
 - A wrong method on a `/rooms` path falls through to the static files, so it gets `404`, not `405`.
-- A closed room cannot be reopened (Q9), and only an open room can be joined (Q9, Q10).
+- A closed room cannot be reopened (Q9), and only an open room can be joined (draft: Q9). A closed room takes no new joins.
 
 ### Tokens
 | Token | Issued by | Identifies |
@@ -46,7 +46,8 @@ This is the merged behaviour. Paths and field names do not change.
 - `hostToken` appears only in the `201` response of `POST /rooms`, never in another room response.
 - The server links a session token to a participant id and an alias, and to nothing that names a person.
 - Join also returns `id`, a number that identifies the participant within the room: `{"id":1,"alias":"Blue Fox","token":"..."}`.
-- The alias stays the same for one session token. A new join creates a new participant, so a client keeps its token to keep its alias (Q13). Aliases are not guaranteed to be unique (Q13); the API addresses participants by `id`.
+- The alias stays the same for one session token. A new join creates a new participant, so a client keeps its token to keep its alias (Q13). The API addresses participants by `id`.
+- Aliases are unique within a room. An alias is a colour and an animal, from a list of 40 colours and 40 animals: 1,600 aliases. An alias stays used and is never freed, also after a kick. When none is left, join returns `409` with the text `no aliases left`. The other `409` on join, for a room that is not open, keeps its merged text `room is not open`. The ticket "Unique aliases within a room" (QAAT-20) adds uniqueness and the new response; the code merged so far has 100 aliases and can repeat them.
 
 **When.** Slice 3 adds `hostToken`, `token` and `id`. These response fields are additive. Slice 3 uses the host token where the host needs its own view, such as reading the posts. Host-only endpoints added by later slices require it from the start.
 
@@ -75,8 +76,9 @@ This is the merged behaviour. Paths and field names do not change.
 - Text may be at most 280 characters, counted as Unicode code points (Q14). Whether empty text is accepted is undecided (Q14).
 - A request body for a new post may be at most 4096 bytes, which fits 280 characters in any JSON escaping. A larger body is `400`.
 - A closed room rejects new posts, new votes and vote removal. Its feed stays readable to earlier participants.
-- `sort=newest` is descending `id`. `sort=top` is descending `votes`, with ties in ascending `id` (Q17). Without `sort`, the order is `top` (Q17).
-- Pinning and marking as answered do not change the order (Q18). Neither can be undone (Q18).
+- Both orders put pinned posts first. Within the pinned posts, and within the others, the normal order applies: `sort=newest` is descending `id`; `sort=top` is descending `votes`, with ties oldest first (ascending `id`). Without `sort`, the order is `newest`.
+- The code merged so far returns the oldest post first. Slice 6 (QAAT-9) switches it to `newest` and adds the `sort` parameter. Pinning comes with slice 12.
+- Marking as answered does not change the order (Q18). Neither mark can be undone (Q18).
 - Whether participants may vote for their own posts is undecided (Q16).
 - Votes are exposed as a count only, never as who voted (Q2).
 
@@ -85,7 +87,7 @@ This is the merged behaviour. Paths and field names do not change.
 | | Participant | Host |
 |---|---|---|
 | Authors | alias | alias |
-| Hidden posts | left out; voting on one is `404` | included, with `"hidden":true` (Q15) |
+| Hidden posts | left out; voting on one is `404` | included, with `"hidden":true` |
 | Deleted posts | gone | gone |
 | Participant list | no | `id` and alias |
 
@@ -128,7 +130,7 @@ New endpoints keep plain-text error bodies.
 | `401` | token missing, unknown, revoked, or for another room |
 | `403` | known token of the wrong kind for this request, or invalid or expired `qrToken` |
 | `404` | unknown room, post or participant |
-| `409` | the room state does not allow the request |
+| `409` | the room state does not allow the request, or a join finds no free alias |
 
 When several apply, the server checks the room (`404`), then the token (`401`, `403`), then the post or participant (`404`), then the room state (`409`), then the input (`400`).
 
@@ -137,12 +139,13 @@ When several apply, the server checks the room (`404`), then the token (`401`, `
 |---|---|
 | 1, 2 | `room-lifecycle`, `join-by-code` (merged) |
 | 3, 4 | `posting`, `post-limits`; slice 3 also issues both tokens |
+| after 4 | `alias-uniqueness`: "Unique aliases within a room" |
 | 5, 6, 7 | `voting`, `feed-sorting`, `closed-room-voting` |
 | before 8 | no feature file: "Enforce host token on host actions" |
 | 8, 9 | `qr-login`, `qr-tokens` |
 | 10, 11, 12 | `live-updates`, `moderation`, `post-marks` |
 
-Slices 1 to 7 are the PoC. Slices 11 and 12 also send the `post`, `post-removed` and `room` events for their changes.
+Slices 1 to 7, with the alias ticket, are the PoC. Slices 11 and 12 also send the `post`, `post-removed` and `room` events for their changes.
 
 ### Rejected alternatives
 - **WebSocket.** Only the server needs to push; every change a client makes is an ordinary request. The Go standard library has no WebSocket server, so it would add a dependency. SSE needs only `net/http` and `http.Flusher`.
@@ -158,6 +161,7 @@ Slices 1 to 7 are the PoC. Slices 11 and 12 also send the `post`, `post-removed`
 - Two rules run in the browser, so scenario steps have to play the client and do not test the page's code: ordering the live feed (slice 10), and the join that follows opening the QR URL (slice 8). Both need a manual check.
 - Until the enforcement ticket is merged, anyone who knows a room code can open or close that room. Losing the host token means losing control of the actions that require it.
 - The tokens are not user authentication. Anyone can create rooms, and anyone who knows the code of an open room can join, any number of times. So a kick or an expired QR token does not keep a person out, and one person can vote more than once by joining again.
+- Every join takes one of the 1,600 aliases and none is freed. That covers 500 participants with room for 1,100 more joins; after that nobody else can join the room. Since anyone with the code can join repeatedly, one person can use them all up.
 - The per-device rate limit (Q4) and profanity filter (Q5) are not in this contract.
 - Rooms, tokens and subscribers live in the memory of one process. A restart loses them, and running several instances would need a different design (Q3).
 - 500 users within 1 s is not verified (Q19). A change in a room of 500 means about 500 small writes, but many votes at once multiply that, and a reconnect of everyone sends 500 snapshots. A load test has to confirm it.
@@ -175,15 +179,14 @@ Slices 1 to 7 are the PoC. Slices 11 and 12 also send the `post`, `post-removed`
 | Q7 | After rotation, do old QR codes stop working at once, and does the room code change? | QR |
 | Q8 | Room code characters, case sensitivity, unknown codes, reuse after closing? | codes |
 | Q9 | Can people join or post in a draft room, and can a closed room be reopened? | room states |
-| Q10 | Can new attendees join a closed room, and can the host still moderate it? | join, moderation. Provisional: no join; host actions on posts and participants still work |
+| Q10 | Can the host still moderate a closed room? | moderation. Provisional: host actions on posts and participants still work |
 | Q11 | Can a kicked participant rejoin, and how does the host pick one? | participants, kick |
 | Q12 | Does the live count drop on disconnect? | `participantCount` |
-| Q13 | Does rejoining on a device keep the alias, and must aliases be unique in a room? | alias |
+| Q13 | Does rejoining on a device keep the alias? | alias |
 | Q14 | How are the 280 characters counted, and are empty posts allowed? | posts |
-| Q15 | Can a hidden post be restored, does the host see it, and can authors delete posts? | moderation. No restore or author delete here |
+| Q15 | Can a hidden post be restored, and can authors delete posts? | moderation. No restore or author delete here |
 | Q16 | Can participants upvote their own posts? | votes |
-| Q17 | What is the default sort, and how are ties ordered? | feed |
-| Q18 | Does a pinned post move up, can several be pinned, and can marks be removed? | marks. Provisional: any number can be pinned |
+| Q18 | Can several posts be pinned, can marks be removed, and does answered affect the order? | marks. Provisional: any number can be pinned |
 | Q19 | How is the 1 s / 500-user target tested? | live updates |
 
 Q1 (a cap on posts per person) adds nothing to this contract until decided.
