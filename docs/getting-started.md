@@ -54,7 +54,7 @@ The default branch must always be green: the gate requires a pass for every test
 4. **Roadmap.** `plan-roadmap` reads the spec branch and the ADRs and creates the plan in your tracker (tell it which project), or writes `docs/roadmap.md` without one. In Linear, that is one project with the milestones PoC and MVP; in Jira, epics for the same phases. One issue = one feature file, and each issue carries its own file word for word.
 5. **Implement.** Per ticket: `implement-ticket` (the issue moves to In Progress; branch from the default branch; add the feature file from the issue, its steps (`write-steps`) and the code; `make check` green; rebase onto the latest default branch before handing off), then `open-pr` (the issue gets the PR link). The issue key is the `<id>` in the branch name.
 6. **Review.** The `review` skill on the pull request, ideally by a second agent.
-7. **Gate.** The agent calls `gate_merge` with the branch name. The gate checks in a container, posts the status `gate` and merges. Watch the gate's terminal. After the merge, the agent sets the issue to Done.
+7. **Gate.** The agent calls `gate_merge` with the branch name, and `gate_result` while the answer is `RUNNING`. The gate checks in a container, posts the status `gate` and merges. Watch the gate's terminal. After the merge, the agent sets the issue to Done.
 8. **The hard rule.** Ask the agent to "fix" an existing scenario (for example `health.feature`). The gate answers `NEEDS APPROVAL`. You decide: `approve.sh approvals`, then `approve.sh approve <PR>` or `approve.sh deny <PR> --reason "..."`.
 
 ## When the gate blocks

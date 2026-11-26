@@ -43,8 +43,14 @@ The gate catches weakened checks, not necessarily vacuous tests. Review and muta
 ## MCP server
 `gate mcp` serves the gate over MCP (stdio) using the official Go SDK, `github.com/modelcontextprotocol/go-sdk`, so an agent can request a check or a merge without any rights of its own.
 
-    bin/gate mcp --repo /path/to/checkout                 # tool: gate_check
+    bin/gate mcp --repo /path/to/checkout                 # tools: gate_check, gate_result
     bin/gate mcp --repo /path/to/checkout --allow-merge   # adds gate_merge
+
+A gate run can take longer than an MCP client waits for a tool call. So `gate_check` and `gate_merge` run in the background: they answer with the result if the run ends within 10 seconds, and with `RESULT: RUNNING` otherwise. `gate_result` with the same branch waits up to 10 seconds more and answers the same way, so call it until the result arrives. It starts nothing.
+
+- A branch has one run at a time. Repeating the running request joins it, so it cannot start a second merge. The other request is refused until the run ends.
+- Once a run has ended, `gate_check` or `gate_merge` starts a new one. `gate_result` keeps answering with the latest run, which may be older than the latest commit.
+- Runs are kept in memory. After a restart, `gate_result` knows of no run: call `gate_check` or `gate_merge` again. A run cut off by the restart may or may not have merged; look at the pull request.
 
 - Run it on the host, outside the agent's sandbox, and give the agent only the connection to it.
 - The agent supplies only a branch name, validated against a strict pattern. The repository, base branch, check list, `--allow-test-changes` and `--allow-protected` are set by whoever starts the server.

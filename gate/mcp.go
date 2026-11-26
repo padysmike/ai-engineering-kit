@@ -48,6 +48,7 @@ type mcpConfig struct {
 	approvals  *approvalStore
 	log        io.Writer
 	sandbox    sandbox
+	resultWait time.Duration
 }
 
 type caller struct {
@@ -57,7 +58,8 @@ type caller struct {
 }
 
 type gateService struct {
-	cfg mcpConfig
+	cfg  mcpConfig
+	runs gateRuns
 }
 
 type branchInput struct {
@@ -87,7 +89,7 @@ func runMCP(args []string) int {
 }
 
 func parseMCPConfig(args []string) (mcpConfig, string, error) {
-	cfg := mcpConfig{log: os.Stderr}
+	cfg := mcpConfig{log: os.Stderr, resultWait: defaultResultWait}
 	var listen, slug, state string
 	var box sandboxFlags
 	fs := flag.NewFlagSet("gate mcp", flag.ContinueOnError)
@@ -235,23 +237,30 @@ func (a action) toolName() string {
 }
 
 func newMCPServer(cfg mcpConfig) *mcp.Server {
+	if cfg.resultWait == 0 {
+		cfg.resultWait = defaultResultWait
+	}
 	svc := &gateService{cfg: cfg}
 	server := mcp.NewServer(&mcp.Implementation{Name: "gate", Version: "0.1.0"}, nil)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "gate_check",
-		Description: "Run the merge gate on a branch against the trusted base branch. Changes nothing except the gate status on the pull request when GitHub is configured.",
+		Description: "Run the merge gate on a branch against the trusted base branch. Changes nothing except the gate status on the pull request when GitHub is configured. A long run answers RUNNING; get its result with gate_result.",
 	}, svc.handler(actionCheck))
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "gate_result",
+		Description: "Get the result of the latest gate run of a branch. Waits a few seconds and answers RUNNING if the run has not ended. Starts nothing.",
+	}, svc.resultHandler())
 	if cfg.allowMerge {
 		mcp.AddTool(server, &mcp.Tool{
 			Name:        "gate_merge",
-			Description: "Run the merge gate and merge the branch only if every check passes.",
+			Description: "Run the merge gate and merge the branch only if every check passes. A long run answers RUNNING; get its result with gate_result.",
 		}, svc.handler(actionMerge))
 	}
 	return server
 }
 
 func (s *gateService) handler(act action) mcp.ToolHandlerFor[branchInput, any] {
-	return func(_ context.Context, req *mcp.CallToolRequest, in branchInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in branchInput) (*mcp.CallToolResult, any, error) {
 		who := callerOf(req)
 		tool := act.toolName()
 		if !branchName.MatchString(in.Branch) {
@@ -259,11 +268,33 @@ func (s *gateService) handler(act action) mcp.ToolHandlerFor[branchInput, any] {
 			return errorResult("invalid branch name"), nil, nil
 		}
 		logf(s.cfg.log, "request tool=%s branch=%s caller=%q client=%q agent=%q", tool, in.Branch, who.name, who.client, who.userAgent)
-		start := time.Now()
-		var buf strings.Builder
-		code := s.execute(in.Branch, act, &buf)
-		logf(s.cfg.log, "finished tool=%s branch=%s caller=%q exit=%d took=%s", tool, in.Branch, who.name, code, time.Since(start).Round(time.Millisecond))
-		return resultForExit(buf.String(), code), nil, nil
+		run, err := s.runs.startOrJoin(in.Branch, act, func() (string, int) { return s.runAndLog(in.Branch, act, who) })
+		if err != nil {
+			logf(s.cfg.log, "rejected tool=%s caller=%q client=%q branch=%q", tool, who.name, who.client, in.Branch)
+			return errorResult(err.Error()), nil, nil
+		}
+		return run.await(ctx, s.cfg.resultWait), nil, nil
+	}
+}
+
+func (s *gateService) runAndLog(branch string, act action, who caller) (string, int) {
+	start := time.Now()
+	var buf strings.Builder
+	code := s.execute(branch, act, &buf)
+	logf(s.cfg.log, "finished tool=%s branch=%s caller=%q exit=%d took=%s", act.toolName(), branch, who.name, code, time.Since(start).Round(time.Millisecond))
+	return buf.String(), code
+}
+
+func (s *gateService) resultHandler() mcp.ToolHandlerFor[branchInput, any] {
+	return func(ctx context.Context, _ *mcp.CallToolRequest, in branchInput) (*mcp.CallToolResult, any, error) {
+		if !branchName.MatchString(in.Branch) {
+			return errorResult("invalid branch name"), nil, nil
+		}
+		run, ok := s.runs.latestOf(in.Branch)
+		if !ok {
+			return errorResult("no gate run for this branch since the gate started; call gate_check or gate_merge"), nil, nil
+		}
+		return run.await(ctx, s.cfg.resultWait), nil, nil
 	}
 }
 

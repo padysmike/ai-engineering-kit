@@ -61,10 +61,10 @@ func TestMCP_ListTools_MergeHiddenUnlessAllowed(t *testing.T) {
 
 	without, with := names(false), names(true)
 
-	if strings.Join(without, ",") != "gate_check" {
+	if strings.Join(without, ",") != "gate_check,gate_result" {
 		t.Errorf("without merge: %v", without)
 	}
-	if len(with) != 2 {
+	if len(with) != 3 {
 		t.Errorf("with merge: %v", with)
 	}
 }
