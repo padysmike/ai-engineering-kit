@@ -19,6 +19,7 @@ func newServer() http.Handler {
 	registerRoomRoutes(mux, rooms)
 	registerPostRoutes(mux, rooms)
 	registerEventRoutes(mux, rooms, tickingHeartbeat)
+	registerQRRoutes(mux, rooms)
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {
 		panic(err)

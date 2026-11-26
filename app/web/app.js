@@ -7,6 +7,7 @@ const LONGEST_RETRY_MILLIS = 10000;
 // Three missed server heartbeats mean the connection is dead.
 const SILENCE_LIMIT_MILLIS = 45000;
 const PERMANENT_STATUSES = [401, 403, 404];
+const QR_REFRESH_MILLIS = 60_000;
 
 const byId = (id) => document.getElementById(id);
 
@@ -16,6 +17,7 @@ let posts = new Map();
 let stream = null;
 let live = false;
 let streamedChanges = 0;
+let qrWanted = false;
 
 function loadSession() {
   try {
@@ -29,7 +31,7 @@ function loadSession() {
   return null;
 }
 
-async function api(method, path, { token, body } = {}) {
+async function send(method, path, { token, body } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body) headers["Content-Type"] = "application/json";
@@ -42,8 +44,10 @@ async function api(method, path, { token, body } = {}) {
   if (!response.ok) {
     throw new Error((await response.text()).trim() || `Request failed (${response.status})`);
   }
-  return response.json();
+  return response;
 }
+
+const api = async (method, path, options) => (await send(method, path, options)).json();
 
 const roomPath = () => `/rooms/${encodeURIComponent(session.code)}`;
 
@@ -89,6 +93,8 @@ function clearRoom() {
   byId("open-room").disabled = true;
   byId("close-room").disabled = true;
   posts = new Map();
+  qrWanted = false;
+  replaceQRImage(null);
   byId("feed").replaceChildren();
   byId("empty-feed").hidden = true;
   byId("post-form").reset();
@@ -101,6 +107,7 @@ function showRoom(room) {
   byId("participant-count").textContent = room.participantCount;
   byId("open-room").disabled = room.state !== "draft";
   byId("close-room").disabled = room.state !== "open";
+  syncQR(room);
 }
 
 function textElement(tag, className, text) {
@@ -142,6 +149,37 @@ function showFeed() {
 function replaceFeed(list) {
   posts = new Map(list.map((post) => [post.id, post]));
   showFeed();
+}
+
+function replaceQRImage(url) {
+  const previous = byId("qr").getAttribute("src");
+  if (previous) URL.revokeObjectURL(previous);
+  if (url) byId("qr").setAttribute("src", url);
+  else byId("qr").removeAttribute("src");
+  byId("qr").hidden = !url;
+}
+
+// An image request cannot carry the host token, so the page fetches the image.
+// A QR token expires, so this also runs to replace the code on screen.
+async function renewQR() {
+  if (!qrWanted || !session) return;
+  const { code, token } = session;
+  try {
+    const image = await send("GET", `${roomPath()}/qr.png`, { token });
+    const blob = await image.blob();
+    if (qrWanted && session?.code === code) replaceQRImage(URL.createObjectURL(blob));
+  } catch (error) {
+    showError(error.message);
+  }
+}
+
+// Room updates arrive often, so the image is fetched only when it appears.
+function syncQR(room) {
+  const wanted = session.role === "host" && room.state === "open";
+  if (wanted === qrWanted) return;
+  qrWanted = wanted;
+  if (wanted) renewQR();
+  else replaceQRImage(null);
 }
 
 async function refresh() {
@@ -285,11 +323,29 @@ async function createRoom() {
   await enterRoom({ role: "host", code: room.code, token: room.hostToken });
 }
 
-async function joinRoom() {
-  const code = byId("join-code").value.toUpperCase();
-  const joined = await api("POST", `/rooms/${encodeURIComponent(code)}/participants`);
+async function joinRoom(code, body) {
+  const joined = await api("POST", `/rooms/${encodeURIComponent(code)}/participants`, { body });
   byId("join-form").reset();
   await enterRoom({ role: "attendee", code, token: joined.token, alias: joined.alias, votedPostIds: [] });
+}
+
+const joinTypedRoom = () => joinRoom(byId("join-code").value.toUpperCase());
+
+// A scanned QR URL carries the room and its token in the fragment. The
+// fragment is removed, so that a reload does not join again.
+function takeScannedQR() {
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  const code = fragment.get("room");
+  const qrToken = fragment.get("qr");
+  if (!code || !qrToken) return null;
+  history.replaceState(null, "", location.pathname + location.search);
+  return { code, qrToken };
+}
+
+function joinScannedRoom() {
+  const scanned = takeScannedQR();
+  if (!scanned || session?.code === scanned.code) return;
+  perform(() => joinRoom(scanned.code, { qrToken: scanned.qrToken }));
 }
 
 async function changeRoom(change) {
@@ -336,7 +392,7 @@ function onSubmit(formId, action) {
   });
 }
 
-onSubmit("join-form", joinRoom);
+onSubmit("join-form", joinTypedRoom);
 onSubmit("post-form", submitPost);
 byId("create-room").addEventListener("click", () => perform(createRoom));
 byId("open-room").addEventListener("click", () => perform(() => changeRoom("open")));
@@ -346,6 +402,10 @@ byId("sort").addEventListener("change", showFeed);
 byId("post-text").addEventListener("input", showPostLength);
 byId("leave").addEventListener("click", leaveRoom);
 
+window.addEventListener("hashchange", joinScannedRoom);
+setInterval(renewQR, QR_REFRESH_MILLIS);
+
 clearRoom();
 showScreen();
 if (session) startStream();
+joinScannedRoom();

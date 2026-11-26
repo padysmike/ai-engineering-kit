@@ -26,7 +26,7 @@ This is the merged behaviour. Paths and field names do not change.
 | `GET /rooms/{code}` | `200` room | `404` |
 | `POST /rooms/{code}/open` (host token) | `200` room; `draft` to `open` | `404`; `401`, `403`; `409` from any other state |
 | `POST /rooms/{code}/close` (host token) | `200` room; `open` to `closed` | `404`; `401`, `403`; `409` from any other state |
-| `POST /rooms/{code}/participants` | `201` `{"alias":"Blue Fox"}`; the request body is ignored | `404`; `409` unless the room is `open` |
+| `POST /rooms/{code}/participants` | `201` `{"alias":"Blue Fox"}`; the request body may be empty or carry `qrToken` (see "QR code") | `404`; `403`, `400` for a bad body; `409` unless the room is `open` |
 | `/healthz` (any method) | `200` `{"status":"ok"}` | |
 | any other path | static files from `app/web` | `404` |
 
@@ -54,7 +54,7 @@ This is the merged behaviour. Paths and field names do not change.
 **Change to existing behaviour:** `open` and `close` needed no token during the PoC. Since "Enforce host token on host actions" (QAAT-18), at the start of the MVP, they require the host token. A missing or unknown token, or one for another room, is `401`. A participant token of the room is `403`. This is not backwards compatible: a request without the token no longer works.
 
 ### Endpoints to add
-"Host" and "participant" name the token required; that includes the host-only reads `/qr` and `/participants`. All paths in this table start with `/rooms/{code}`.
+"Host" and "participant" name the token required; that includes the host-only reads `/qr`, `/qr.png` and `/participants`. All paths in this table start with `/rooms/{code}`.
 
 | Request | Token | Success | Slice |
 |---|---|---|---|
@@ -63,6 +63,7 @@ This is the merged behaviour. Paths and field names do not change.
 | `GET /posts?sort=top\|newest` | participant or host | `200` `{"posts":[post]}` | 3, 6 |
 | `POST /posts/{postId}/vote` | participant | `200` post; adds the caller's vote, or removes it if present | 5, 7 |
 | `GET /qr` | host | `200` `{"url":"..."}` | 8 |
+| `GET /qr.png` | host | `200` a PNG image of the QR code | 8 |
 | `POST /qr/rotate` | host | `200` `{"url":"..."}`, different from before | 9 |
 | `GET /events` | participant or host | `200` event stream | 10 |
 | `POST /posts/{postId}/hide` | host | `200` post | 11 |
@@ -101,7 +102,12 @@ No response or event contains a session token, apart from the join response that
 - If a join carries `qrToken`, the server accepts it only if it is valid for that room and not expired. Otherwise it answers `403` and adds no participant. The page does not retry without the token.
 - A join without `qrToken` remains the manual room-code join.
 - Rotating makes earlier QR tokens invalid. It does not change the room code or sign anyone out (Q6, Q7).
-- This contract returns only the URL. How the host's screen draws the QR image is left to slice 8; the Go standard library has no QR encoder, so a library needs approval first.
+- `GET /qr.png` draws the QR code of the URL that `GET /qr` would return at that moment. The host's page fetches it with the host token and shows it from a `blob:` URL, so its content security policy allows `img-src 'self' blob:`. Both responses carry `Cache-Control: no-store`.
+- The Go standard library has no QR encoder. The server uses `rsc.io/qr` v0.2.0 (BSD-3-Clause), approved by Michal on 2026-11-26.
+- The QR token is signed with HMAC-SHA256 under a random key of the room. It covers the room code, a generation number for later rotation, and the expiry time.
+- The URL is `<scheme>://<host>/#room=<code>&qr=<token>`, with the scheme and host of the request that asked for it. The token is in the fragment, which a browser does not send to the server. A host who opens the app as `localhost` therefore gets a QR code that other devices cannot use.
+- A QR token lasts 5 minutes (provisional, Q6). The host's screen fetches a new one every minute.
+- The join body may be empty or JSON, at most 4096 bytes. Anything else is `400`.
 
 ### Live updates
 `GET /rooms/{code}/events` answers with `text/event-stream`. Each `data` line is JSON.
