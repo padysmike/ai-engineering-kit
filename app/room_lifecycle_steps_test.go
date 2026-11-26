@@ -14,6 +14,21 @@ type roomHost struct {
 	rooms  []roomView
 }
 
+type perScenario[T any] map[*godog.ScenarioContext]*T
+
+func (p perScenario[T]) of(sc *godog.ScenarioContext, create func() *T) *T {
+	if _, ok := p[sc]; !ok {
+		p[sc] = create()
+	}
+	return p[sc]
+}
+
+var roomHosts = perScenario[roomHost]{}
+
+func hostFor(sc *godog.ScenarioContext) *roomHost {
+	return roomHosts.of(sc, func() *roomHost { return &roomHost{server: newServer()} })
+}
+
 func (h *roomHost) post(path string, wantStatus int) (roomView, error) {
 	rec := httptest.NewRecorder()
 	h.server.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, nil))
@@ -92,7 +107,7 @@ func (h *roomHost) expectState(want string) error {
 
 func init() {
 	registerSteps(func(sc *godog.ScenarioContext) {
-		host := &roomHost{server: newServer()}
+		host := hostFor(sc)
 
 		sc.Step(`^the host creates (\d+) rooms$`, host.createRooms)
 		sc.Step(`^each room has a (\d+)-character room code$`, host.expectCodeLength)
