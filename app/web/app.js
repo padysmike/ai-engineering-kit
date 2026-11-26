@@ -140,7 +140,7 @@ async function joinRoom() {
 }
 
 async function changeRoom(change) {
-  await api("POST", `${roomPath()}/${change}`);
+  await api("POST", `${roomPath()}/${change}`, { token: session.token });
   await refresh();
 }
 

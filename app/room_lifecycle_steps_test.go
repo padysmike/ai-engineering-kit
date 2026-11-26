@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/cucumber/godog"
 )
 
 type roomHost struct {
-	server http.Handler
-	rooms  []roomView
+	server     http.Handler
+	rooms      []roomView
+	hostTokens map[string]string
 }
 
 type perScenario[T any] map[*godog.ScenarioContext]*T
@@ -31,15 +33,36 @@ func hostFor(sc *godog.ScenarioContext) *roomHost {
 
 func (h *roomHost) post(path string, wantStatus int) (roomView, error) {
 	rec := httptest.NewRecorder()
-	h.server.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, path, nil))
-	var view roomView
+	request := httptest.NewRequest(http.MethodPost, path, nil)
+	h.authorizeAsHost(request)
+	h.server.ServeHTTP(rec, request)
+	var view createdRoomView
 	if rec.Code != wantStatus {
-		return view, fmt.Errorf("POST %s: status = %d, want %d", path, rec.Code, wantStatus)
+		return view.roomView, fmt.Errorf("POST %s: status = %d, want %d", path, rec.Code, wantStatus)
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&view); err != nil {
-		return view, fmt.Errorf("POST %s: decode room: %w", path, err)
+		return view.roomView, fmt.Errorf("POST %s: decode room: %w", path, err)
 	}
-	return view, nil
+	h.keepHostToken(view)
+	return view.roomView, nil
+}
+
+func (h *roomHost) authorizeAsHost(request *http.Request) {
+	for code, token := range h.hostTokens {
+		if strings.HasPrefix(request.URL.Path, "/rooms/"+code+"/") {
+			request.Header.Set("Authorization", "Bearer "+token)
+		}
+	}
+}
+
+func (h *roomHost) keepHostToken(created createdRoomView) {
+	if created.HostToken == "" {
+		return
+	}
+	if h.hostTokens == nil {
+		h.hostTokens = map[string]string{}
+	}
+	h.hostTokens[created.Code] = created.HostToken
 }
 
 func (h *roomHost) createRooms(count int) error {

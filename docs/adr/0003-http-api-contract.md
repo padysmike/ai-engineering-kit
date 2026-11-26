@@ -24,8 +24,8 @@ This is the merged behaviour. Paths and field names do not change.
 |---|---|---|
 | `POST /rooms` | `201` room, in state `draft` | |
 | `GET /rooms/{code}` | `200` room | `404` |
-| `POST /rooms/{code}/open` | `200` room; `draft` to `open` | `404`; `409` from any other state |
-| `POST /rooms/{code}/close` | `200` room; `open` to `closed` | `404`; `409` from any other state |
+| `POST /rooms/{code}/open` (host token) | `200` room; `draft` to `open` | `404`; `401`, `403`; `409` from any other state |
+| `POST /rooms/{code}/close` (host token) | `200` room; `open` to `closed` | `404`; `401`, `403`; `409` from any other state |
 | `POST /rooms/{code}/participants` | `201` `{"alias":"Blue Fox"}`; the request body is ignored | `404`; `409` unless the room is `open` |
 | `/healthz` (any method) | `200` `{"status":"ok"}` | |
 | any other path | static files from `app/web` | `404` |
@@ -51,14 +51,14 @@ This is the merged behaviour. Paths and field names do not change.
 
 **When.** Slice 3 adds `hostToken`, `token` and `id`. These response fields are additive. Slice 3 uses the host token where the host needs its own view, such as reading the posts. Host-only endpoints added by later slices require it from the start.
 
-**Change to existing behaviour, deferred:** `open` and `close` need no token during the PoC. The ticket "Enforce host token on host actions", at the start of the MVP before slice 8, makes them require it. That change is not backwards compatible: a request without the token stops working. Approved tests send such requests, so the ticket has to edit them, which needs a human's approval at the gate.
+**Change to existing behaviour:** `open` and `close` needed no token during the PoC. Since "Enforce host token on host actions" (QAAT-18), at the start of the MVP, they require the host token. A missing or unknown token, or one for another room, is `401`. A participant token of the room is `403`. This is not backwards compatible: a request without the token no longer works.
 
 ### Endpoints to add
 "Host" and "participant" name the token required; that includes the host-only reads `/qr` and `/participants`. All paths in this table start with `/rooms/{code}`.
 
 | Request | Token | Success | Slice |
 |---|---|---|---|
-| `POST /open`, `POST /close` (existing) | host | as above | enforcement ticket, before 8 |
+| `POST /open`, `POST /close` (existing) | host | as above | 1; token enforced before 8 |
 | `POST /posts` with `{"text":"..."}` | participant | `201` post | 3, 4 |
 | `GET /posts?sort=top\|newest` | participant or host | `200` `{"posts":[post]}` | 3, 6 |
 | `POST /posts/{postId}/vote` | participant | `200` post; adds the caller's vote, or removes it if present | 5, 7 |
@@ -159,7 +159,7 @@ Slices 1 to 7, with the alias ticket, are the PoC. Slices 11 and 12 also send th
 ## Consequences
 - Slices can be built separately against one contract, with no new dependency for the API or live updates.
 - Two rules run in the browser, so scenario steps have to play the client and do not test the page's code: ordering the live feed (slice 10), and the join that follows opening the QR URL (slice 8). Both need a manual check.
-- Until the enforcement ticket is merged, anyone who knows a room code can open or close that room. Losing the host token means losing control of the actions that require it.
+- Knowing a room code is not enough to open or close that room. Losing the host token means losing control of the actions that require it.
 - The tokens are not user authentication. Anyone can create rooms, and anyone who knows the code of an open room can join, any number of times. So a kick or an expired QR token does not keep a person out, and one person can vote more than once by joining again.
 - Every join takes one of the 1,600 aliases and none is freed. That covers 500 participants with room for 1,100 more joins; after that nobody else can join the room. Since anyone with the code can join repeatedly, one person can use them all up.
 - The per-device rate limit (Q4) and profanity filter (Q5) are not in this contract.

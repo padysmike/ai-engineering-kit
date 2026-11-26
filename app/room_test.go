@@ -45,8 +45,10 @@ func TestRoomStateChange(t *testing.T) {
 				}
 			}
 			rec := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/rooms/"+host.rooms[0].Code+"/"+tc.action, nil)
+			host.authorizeAsHost(request)
 
-			host.server.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/rooms/"+host.rooms[0].Code+"/"+tc.action, nil))
+			host.server.ServeHTTP(rec, request)
 
 			if rec.Code != http.StatusConflict {
 				t.Errorf("status = %d, want %d", rec.Code, http.StatusConflict)

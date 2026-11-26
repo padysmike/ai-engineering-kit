@@ -59,13 +59,26 @@ func joinHandler(rooms *roomStore) http.HandlerFunc {
 
 func transitionHandler(rooms *roomStore, from, to roomState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		changed, err := rooms.transition(r.PathValue("code"), from, to)
+		code := r.PathValue("code")
+		if err := checkHostRequest(rooms, code, bearerToken(r)); err != nil {
+			writeRoomError(w, err)
+			return
+		}
+		changed, err := rooms.transition(code, from, to)
 		if err != nil {
 			writeRoomError(w, err)
 			return
 		}
 		writeRoom(w, http.StatusOK, changed)
 	}
+}
+
+func checkHostRequest(rooms *roomStore, code, token string) error {
+	found, err := rooms.find(code)
+	if err != nil {
+		return err
+	}
+	return found.checkIsHost(token)
 }
 
 func writeRoomError(w http.ResponseWriter, err error) {
@@ -78,7 +91,7 @@ func roomErrorStatus(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, errUnknownToken):
 		return http.StatusUnauthorized
-	case errors.Is(err, errNotParticipant):
+	case errors.Is(err, errNotParticipant), errors.Is(err, errNotHost):
 		return http.StatusForbidden
 	case errors.Is(err, errPostTooLong), errors.Is(err, errUnknownSort):
 		return http.StatusBadRequest

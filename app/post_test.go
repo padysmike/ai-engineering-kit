@@ -30,7 +30,7 @@ func decoded[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
 func openRoomWithParticipant(t *testing.T, server http.Handler) (createdRoomView, participantView) {
 	t.Helper()
 	created := decoded[createdRoomView](t, serve(server, http.MethodPost, "/rooms", "", ""))
-	serve(server, http.MethodPost, "/rooms/"+created.Code+"/open", "", "")
+	serve(server, http.MethodPost, "/rooms/"+created.Code+"/open", created.HostToken, "")
 	joined := decoded[participantView](t, serve(server, http.MethodPost, "/rooms/"+created.Code+"/participants", "", ""))
 	return created, joined
 }
@@ -113,7 +113,7 @@ func TestHostToken_LaterRoomResponses_NotIncluded(t *testing.T) {
 	created, _ := openRoomWithParticipant(t, server)
 
 	read := serve(server, http.MethodGet, "/rooms/"+created.Code, "", "")
-	closed := serve(server, http.MethodPost, "/rooms/"+created.Code+"/close", "", "")
+	closed := serve(server, http.MethodPost, "/rooms/"+created.Code+"/close", created.HostToken, "")
 
 	if created.HostToken == "" {
 		t.Fatal("create returned no host token")
