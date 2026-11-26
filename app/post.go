@@ -12,6 +12,7 @@ const maxPostCharacters = 280
 var (
 	errUnknownToken   = errors.New("token is missing or unknown")
 	errNotParticipant = errors.New("only a participant can do this")
+	errNotHost        = errors.New("only the host can do this")
 	errPostTooLong    = errors.New("post is longer than 280 characters")
 	errPostNotFound   = errors.New("post not found")
 	errUnknownSort    = errors.New("unknown sort")
@@ -62,6 +63,16 @@ func (r room) participantByToken(token string) (participant, error) {
 		return participant{}, errUnknownToken
 	}
 	return r.participants[i], nil
+}
+
+func (r room) checkIsHost(token string) error {
+	if token == r.hostToken {
+		return nil
+	}
+	if _, err := r.participantByToken(token); err != nil {
+		return err
+	}
+	return errNotHost
 }
 
 func (r room) checkMayRead(token string) error {

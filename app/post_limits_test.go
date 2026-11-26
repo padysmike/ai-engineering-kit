@@ -35,7 +35,7 @@ func TestSubmitPost_ClosedRoom_ConflictBeforeInputAndFeedUnchanged(t *testing.T)
 	server := newServer()
 	created, member := openRoomWithParticipant(t, server)
 	path := "/rooms/" + created.Code + "/posts"
-	serve(server, http.MethodPost, "/rooms/"+created.Code+"/close", "", "")
+	serve(server, http.MethodPost, "/rooms/"+created.Code+"/close", created.HostToken, "")
 
 	valid := serve(server, http.MethodPost, path, member.Token, `{"text":"late"}`)
 	malformed := serve(server, http.MethodPost, path, member.Token, "{")

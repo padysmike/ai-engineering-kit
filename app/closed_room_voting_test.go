@@ -12,7 +12,7 @@ func TestVote_ClosedRoom(t *testing.T) {
 	posts := "/rooms/" + room.Code + "/posts"
 	serve(server, http.MethodPost, posts, voter.Token, `{"text":"one"}`)
 	serve(server, http.MethodPost, posts+"/1/vote", voter.Token, "")
-	serve(server, http.MethodPost, "/rooms/"+room.Code+"/close", "", "")
+	serve(server, http.MethodPost, "/rooms/"+room.Code+"/close", room.HostToken, "")
 	tests := []struct {
 		name, path, token string
 		status            int
