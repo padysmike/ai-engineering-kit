@@ -30,10 +30,7 @@ func approvedAlone(o options, run checkRun, branchSHA string) []result {
 		if !slices.Contains(approvedTargets, target) {
 			continue
 		}
-		run.target = target
-		res := runTarget(o.sandbox, run)
-		res.name = target + " (approved tests alone)"
-		results = append(results, res)
+		results = append(results, o.runUnlessDisabled(run, target, target+" (approved tests alone)"))
 	}
 	return append(results, proofOfPass(o, run, branchSHA)...)
 }

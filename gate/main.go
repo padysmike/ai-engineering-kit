@@ -44,13 +44,15 @@ type options struct {
 	approvals        *approvalStore
 	notify           io.Writer
 	sandbox          sandbox
+	disabled         []string
 }
 
 type result struct {
-	name     string
-	ok       bool
-	detail   []string
-	approval *approvalNeed
+	name         string
+	ok           bool
+	detail       []string
+	approval     *approvalNeed
+	skippedCheck string
 }
 
 type outcome struct {
@@ -77,6 +79,9 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "pr" {
 		os.Exit(runPR(os.Args[2:], os.Stdout))
+	}
+	if len(os.Args) > 1 && isToggleCommand(os.Args[1]) {
+		os.Exit(runToggles(os.Args[1], os.Args[2:], os.Stdout))
 	}
 	if len(os.Args) > 1 && isApprovalCommand(os.Args[1]) {
 		os.Exit(runApprovals(os.Args[1], os.Args[2:], os.Stdout))
@@ -153,6 +158,10 @@ func parseOptions(args []string, out io.Writer) (options, error) {
 }
 
 func evaluate(o options) (outcome, error) {
+	o, err := o.withDisabledChecks()
+	if err != nil {
+		return outcome{}, err
+	}
 	baseSHA, err := revParse(o.repo, o.base)
 	if err != nil {
 		return outcome{}, err
@@ -197,6 +206,10 @@ func report(out io.Writer, o options, oc outcome) int {
 }
 
 func printResult(out io.Writer, p painter, r result) {
+	if r.skippedCheck != "" {
+		say(out, "%s%s%s\n", skippedLinePrefix, r.name, skippedReason)
+		return
+	}
 	if r.ok {
 		say(out, "  %s %s\n", p.green("[ok]  "), r.name)
 		return
@@ -281,10 +294,19 @@ func runTargets(o options, baseSHA, branchSHA string) []result {
 	}
 	var results []result
 	for _, target := range o.targets {
-		run.target = target
-		results = append(results, runTarget(o.sandbox, run))
+		results = append(results, o.runUnlessDisabled(run, target, target))
 	}
 	return append(results, approvedAlone(o, run, branchSHA)...)
+}
+
+func (o options) runUnlessDisabled(run checkRun, target, label string) result {
+	if o.isDisabled(target) {
+		return skippedResult(target, label)
+	}
+	run.target = target
+	res := runTarget(o.sandbox, run)
+	res.name = label
+	return res
 }
 
 func trustedWorktree(repo, baseSHA, branchSHA string) (string, func(), error) {

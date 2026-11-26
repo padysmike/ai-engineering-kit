@@ -55,6 +55,9 @@ func proofOfPass(o options, run checkRun, branchSHA string) []result {
 	if !slices.ContainsFunc(o.targets, isApprovedTarget) {
 		return nil
 	}
+	if o.isDisabled(checkApprovedTestsPass) {
+		return []result{skippedResult(checkApprovedTestsPass, checkApprovedTestsPass)}
+	}
 	required, err := approvedTestList(o, run.baseSHA, branchSHA)
 	if err != nil {
 		return []result{{name: "approved tests could not be listed", detail: []string{err.Error()}}}

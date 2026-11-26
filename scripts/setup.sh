@@ -282,6 +282,7 @@ EOF
   cat > "$STATE/approve.sh" << EOF
 #!/bin/sh
 # Your decisions on pull requests the gate holds: approvals | approve <PR> | deny <PR> --reason "..."
+# Turning single checks off and on: checks | disable <check> | enable <check>
 GATE_STATE_DIR="$STATE/approvals" exec "$STATE/gate" "\$@"
 EOF
   cat > "$STATE/agent-env.sh" << EOF
@@ -332,6 +333,7 @@ summary() {
       "  terminal 2:  $STATE/agent-env.sh claude      (or start your sandbox with the agent token)" \
       "" \
       "When the gate holds a pull request for you:  $STATE/approve.sh approvals" \
+      "To turn a check off for a while:             $STATE/approve.sh disable lint" \
       "Next: docs/getting-started.md, section 'The workflow'."
 }
 

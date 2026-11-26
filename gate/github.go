@@ -238,6 +238,14 @@ func fetchPullRequest(o prOptions) (string, pullRequest, error) {
 }
 
 func statusFor(code int, output string) (string, string) {
+	state, description := verdictFor(code, output)
+	if skipped := skippedChecks(output); code != exitError && len(skipped) > 0 {
+		description += " (skipped: " + strings.Join(skipped, ", ") + ")"
+	}
+	return state, description
+}
+
+func verdictFor(code int, output string) (string, string) {
 	switch code {
 	case exitPassed:
 		return "success", "gate passed"

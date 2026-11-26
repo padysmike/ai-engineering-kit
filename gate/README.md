@@ -74,6 +74,22 @@ Every request is logged to stderr, one line when it arrives and one when it fini
 
 The gate exports `GATE_BASE_SHA` so `diff-coverage` compares against the trusted base commit. `make vuln` (govulncheck) is not part of the gate because it needs network access.
 
+## Turning checks off
+A human on the host can turn single checks off, for example to relax the gate for a demo:
+
+    bin/gate checks                 # list the checks and whether each is on
+    bin/gate disable lint
+    bin/gate enable lint
+
+- The checks are the make targets `fmt-check`, `vet`, `lint`, `test`, `bdd`, `coverage`, `diff-coverage` and `validate-skills`, plus `approved-tests-pass` (the check that every test and scenario on the base reports a pass).
+- `lint` includes the function length and complexity limits.
+- Disabling `test` or `bdd` also skips its run with the approved tests alone. `coverage`, `diff-coverage` and `approved-tests-pass` run tests too, so a failing test can still block through them.
+- The checks for protected paths, changed approved tests and test process control cannot be turned off. Human approval covers their exceptions.
+- The setting is a file in the state directory, so it applies only to runs started with `--state`, and the next run reads it without a restart. The commands use `--state`, else `GATE_STATE_DIR`, else `~/.gate`. Put `--state DIR` before the check name. If you used `scripts/setup.sh`, run them through `approve.sh`, which points at the right directory.
+- A skipped check prints `[skip]`, and the GitHub status names it, for example `gate passed (skipped: lint)`.
+- If the file cannot be read or names an unknown check, the gate does not run.
+- There is no MCP tool for this, so an agent cannot change it. As with approvals, keep the state directory outside everything the agent can reach.
+
 ## Human approval
 Changes to approved tests, scenarios and protected paths need a human. With `--state DIR` the gate does not just block: it stores a request tied to the pull request and head commit, posts the status `pending`, and returns `NEEDS APPROVAL` (exit code 3) without waiting.
 
