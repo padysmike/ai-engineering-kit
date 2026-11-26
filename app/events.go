@@ -36,6 +36,24 @@ func newEventFrame(name string, payload any) (eventFrame, error) {
 
 type subscriber chan eventFrame
 
+type viewer struct{ participantID int }
+
+const hostViewerID = 0
+
+func (v viewer) isHost() bool { return v.participantID == hostViewerID }
+
+func (v viewer) isParticipant() bool { return !v.isHost() }
+
+func anyViewer(viewer) bool { return true }
+
+func (r room) viewerOf(token string) (viewer, error) {
+	if token == r.hostToken {
+		return viewer{participantID: hostViewerID}, nil
+	}
+	caller, err := r.participantByToken(token)
+	return viewer{participantID: caller.id}, err
+}
+
 func (s *roomStore) subscribe(code, token string) (subscriber, room, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -43,15 +61,18 @@ func (s *roomStore) subscribe(code, token string) (subscriber, room, error) {
 	if !ok {
 		return nil, room{}, errRoomNotFound
 	}
-	if err := found.checkMayRead(token); err != nil {
+	watching, err := found.viewerOf(token)
+	if err != nil {
 		return nil, room{}, err
 	}
 	joined := make(subscriber, subscriberBacklog)
 	if s.subscribers[code] == nil {
-		s.subscribers[code] = map[subscriber]struct{}{}
+		s.subscribers[code] = map[subscriber]viewer{}
 	}
-	s.subscribers[code][joined] = struct{}{}
-	return joined, found.snapshot(), nil
+	s.subscribers[code][joined] = watching
+	current := found.snapshot()
+	current.posts = current.postsVisibleTo(token)
+	return joined, current, nil
 }
 
 func (s *roomStore) unsubscribe(code string, leaving subscriber) {
@@ -60,10 +81,14 @@ func (s *roomStore) unsubscribe(code string, leaving subscriber) {
 	delete(s.subscribers[code], leaving)
 }
 
-// publishLocked needs s.mu held, so that events leave in the order of the
+func (s *roomStore) publishLocked(code, name string, payload any) {
+	s.publishToLocked(code, anyViewer, name, payload)
+}
+
+// publishToLocked needs s.mu held, so that events leave in the order of the
 // changes and none falls between a new subscriber and its snapshot. It never
 // waits: a subscriber with a full backlog is dropped and its channel closed.
-func (s *roomStore) publishLocked(code, name string, payload any) {
+func (s *roomStore) publishToLocked(code string, receives func(viewer) bool, name string, payload any) {
 	if len(s.subscribers[code]) == 0 {
 		return
 	}
@@ -72,12 +97,27 @@ func (s *roomStore) publishLocked(code, name string, payload any) {
 		log.Print(err)
 		return
 	}
-	for receiver := range s.subscribers[code] {
+	for receiver, watching := range s.subscribers[code] {
+		if !receives(watching) {
+			continue
+		}
 		select {
 		case receiver <- frame:
 		default:
-			delete(s.subscribers[code], receiver)
-			close(receiver)
+			s.dropLocked(code, receiver)
+		}
+	}
+}
+
+func (s *roomStore) dropLocked(code string, dropped subscriber) {
+	delete(s.subscribers[code], dropped)
+	close(dropped)
+}
+
+func (s *roomStore) closeStreamsOfLocked(code string, participantID int) {
+	for receiver, watching := range s.subscribers[code] {
+		if watching.participantID == participantID {
+			s.dropLocked(code, receiver)
 		}
 	}
 }

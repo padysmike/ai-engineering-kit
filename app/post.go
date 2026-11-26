@@ -38,6 +38,7 @@ type post struct {
 	id       int
 	alias    string
 	text     string
+	hidden   bool
 	voterIDs []int
 }
 
@@ -76,10 +77,8 @@ func (r room) checkIsHost(token string) error {
 }
 
 func (r room) checkMayRead(token string) error {
-	if _, err := r.participantByToken(token); errors.Is(err, errUnknownToken) {
-		return err
-	}
-	return nil
+	_, err := r.viewerOf(token)
+	return err
 }
 
 func (s *roomStore) addPost(code, alias, text string) (post, error) {
@@ -89,13 +88,17 @@ func (s *roomStore) addPost(code, alias, text string) (post, error) {
 	if !ok {
 		return post{}, errRoomNotFound
 	}
+	if found.wasKicked(func(p participant) bool { return p.alias == alias }) {
+		return post{}, errUnknownToken
+	}
 	if found.state != roomOpen {
 		return post{}, errRoomNotOpen
 	}
 	if utf8.RuneCountInString(text) > maxPostCharacters {
 		return post{}, errPostTooLong
 	}
-	added := post{id: len(found.posts) + 1, alias: alias, text: text}
+	found.lastPostID++
+	added := post{id: found.lastPostID, alias: alias, text: text}
 	found.posts = append(found.posts, added)
 	s.byCode[code] = found
 	s.publishLocked(code, eventPost, viewOfPost(added))
@@ -109,8 +112,14 @@ func (s *roomStore) toggleVote(code string, postID, participantID int) (post, er
 	if !ok {
 		return post{}, errRoomNotFound
 	}
-	i := slices.IndexFunc(found.posts, func(p post) bool { return p.id == postID })
-	if i < 0 {
+	if found.wasKicked(func(p participant) bool { return p.id == participantID }) {
+		return post{}, errUnknownToken
+	}
+	i, err := found.postIndex(postID)
+	if err != nil {
+		return post{}, err
+	}
+	if found.posts[i].hidden {
 		return post{}, errPostNotFound
 	}
 	if found.state != roomOpen {

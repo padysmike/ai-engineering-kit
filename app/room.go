@@ -25,20 +25,23 @@ var (
 )
 
 type room struct {
-	code         string
-	state        roomState
-	hostToken    string
-	qrKey        string
-	qrGeneration int
-	participants []participant
-	usedAliases  []string
-	posts        []post
+	code              string
+	state             roomState
+	hostToken         string
+	qrKey             string
+	qrGeneration      int
+	participants      []participant
+	kicked            []participant
+	lastParticipantID int
+	usedAliases       []string
+	posts             []post
+	lastPostID        int
 }
 
 type roomStore struct {
 	mu          sync.Mutex
 	byCode      map[string]room
-	subscribers map[string]map[subscriber]struct{}
+	subscribers map[string]map[subscriber]viewer
 	newCode     func() string
 	newAlias    func() string
 	now         func() time.Time
@@ -47,7 +50,7 @@ type roomStore struct {
 func newRoomStore(newCode func() string) *roomStore {
 	return &roomStore{
 		byCode:      map[string]room{},
-		subscribers: map[string]map[subscriber]struct{}{},
+		subscribers: map[string]map[subscriber]viewer{},
 		newCode:     newCode,
 		newAlias:    randomAlias,
 		now:         time.Now,
@@ -80,6 +83,7 @@ func (s *roomStore) find(code string) (room, error) {
 
 func (r room) snapshot() room {
 	r.participants = slices.Clone(r.participants)
+	r.kicked = slices.Clone(r.kicked)
 	r.usedAliases = slices.Clone(r.usedAliases)
 	r.posts = slices.Clone(r.posts)
 	for i := range r.posts {
@@ -117,7 +121,8 @@ func (s *roomStore) admit(code string, checkEntry entryCheck) (participant, erro
 	if err != nil {
 		return participant{}, err
 	}
-	joined := participant{id: len(found.participants) + 1, alias: alias, token: rand.Text()}
+	found.lastParticipantID++
+	joined := participant{id: found.lastParticipantID, alias: alias, token: rand.Text()}
 	found.participants = append(found.participants, joined)
 	found.usedAliases = append(found.usedAliases, alias)
 	s.byCode[code] = found

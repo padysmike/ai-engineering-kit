@@ -73,7 +73,7 @@ This is the merged behaviour. Paths and field names do not change.
 | `POST /posts/{postId}/pin` | host | `200` post | 12 |
 | `POST /posts/{postId}/answered` | host | `200` post | 12 |
 
-**Posts.** A post is `{"id":7,"alias":"Blue Fox","text":"...","votes":2}`. Slice 11 adds `hidden`, in host responses only. Slice 12 adds `pinned` and `answered`. `id` is a number that increases with each new post in the room.
+**Posts.** A post is `{"id":7,"alias":"Blue Fox","text":"...","votes":2}`. Slice 11 adds `hidden`, in host responses only; it is present, as `true`, only on a hidden post. Slice 12 adds `pinned` and `answered`. `id` is a number that increases with each new post in the room; post and participant ids are never reused.
 - Text may be at most 280 characters, counted as Unicode code points (Q14). Whether empty text is accepted is undecided (Q14).
 - A request body for a new post may be at most 4096 bytes, which fits 280 characters in any JSON escaping. A larger body is `400`.
 - A closed room rejects new posts, new votes and vote removal. Its feed stays readable to earlier participants.
@@ -94,7 +94,7 @@ This is the merged behaviour. Paths and field names do not change.
 
 No response or event contains a session token, apart from the join response that issues it.
 
-**Kick.** `DELETE /participants/{participantId}` revokes that session token: later requests with it get `401`, its event stream is closed, and `participantCount` drops by one. The person can join again with the room code (Q11). The count does not drop when someone only disconnects (Q12). What happens to a kicked participant's posts and votes is not specified; they stay (Q11).
+**Kick.** `DELETE /participants/{participantId}` revokes that session token: later requests with it get `401`, its event stream is closed, and `participantCount` drops by one. The person can join again with the room code (Q11). The count does not drop when someone only disconnects (Q12). What happens to a kicked participant's posts and votes is not specified; they stay (Q11). A post or vote already on its way is refused too: the server checks for a kick when it applies the change.
 
 ### QR code
 - `url` points to the app's join page for that room and carries the room code and a signed, expiring QR token. Clients treat the URL as opaque. The token lifetime is undecided (Q6).

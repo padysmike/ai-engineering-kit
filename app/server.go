@@ -23,6 +23,7 @@ func newServer() http.Handler {
 	rooms := newRoomStore(randomRoomCode)
 	registerRoomRoutes(mux, rooms)
 	registerPostRoutes(mux, rooms)
+	registerModerationRoutes(mux, rooms)
 	registerEventRoutes(mux, rooms, tickingHeartbeat)
 	registerQRRoutes(mux, rooms)
 	sub, err := fs.Sub(webFS, "web")
