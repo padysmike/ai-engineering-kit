@@ -48,14 +48,16 @@ This is the merged behaviour. Paths and field names do not change.
 - Join also returns `id`, a number that identifies the participant within the room: `{"id":1,"alias":"Blue Fox","token":"..."}`.
 - The alias stays the same for one session token. A new join creates a new participant, so a client keeps its token to keep its alias (Q13). Aliases are not guaranteed to be unique (Q13); the API addresses participants by `id`.
 
-**Change to existing behaviour:** `open` and `close` will require the host token. The new response fields are additive, but this requirement is not: a request without the token stops working.
+**When.** Slice 3 adds `hostToken`, `token` and `id`. These response fields are additive. Slice 3 uses the host token where the host needs its own view, such as reading the posts. Host-only endpoints added by later slices require it from the start.
+
+**Change to existing behaviour, deferred:** `open` and `close` need no token during the PoC. The ticket "Enforce host token on host actions", at the start of the MVP before slice 8, makes them require it. That change is not backwards compatible: a request without the token stops working. Approved tests send such requests, so the ticket has to edit them, which needs a human's approval at the gate.
 
 ### Endpoints to add
 "Host" and "participant" name the token required; that includes the host-only reads `/qr` and `/participants`. All paths in this table start with `/rooms/{code}`.
 
 | Request | Token | Success | Slice |
 |---|---|---|---|
-| `POST /open`, `POST /close` (existing) | host | as above | with the host token |
+| `POST /open`, `POST /close` (existing) | host | as above | enforcement ticket, before 8 |
 | `POST /posts` with `{"text":"..."}` | participant | `201` post | 3, 4 |
 | `GET /posts?sort=top\|newest` | participant or host | `200` `{"posts":[post]}` | 3, 6 |
 | `POST /posts/{postId}/vote` | participant | `200` post; adds the caller's vote, or removes it if present | 5, 7 |
@@ -133,8 +135,9 @@ When several apply, the server checks the room (`404`), then the token (`401`, `
 | Slice | Feature file |
 |---|---|
 | 1, 2 | `room-lifecycle`, `join-by-code` (merged) |
-| 3, 4 | `posting`, `post-limits` |
+| 3, 4 | `posting`, `post-limits`; slice 3 also issues both tokens |
 | 5, 6, 7 | `voting`, `feed-sorting`, `closed-room-voting` |
+| before 8 | no feature file: "Enforce host token on host actions" |
 | 8, 9 | `qr-login`, `qr-tokens` |
 | 10, 11, 12 | `live-updates`, `moderation`, `post-marks` |
 
@@ -152,7 +155,7 @@ Slices 1 to 7 are the PoC. Slices 11 and 12 also send the `post`, `post-removed`
 ## Consequences
 - Slices can be built separately against one contract, with no new dependency for the API or live updates.
 - Two rules run in the browser, so scenario steps have to play the client and do not test the page's code: ordering the live feed (slice 10), and the join that follows opening the QR URL (slice 8). Both need a manual check.
-- The host token must be added before attendees get a room code. Approved tests call `open` and `close` without a token, so that change must edit them, which needs a human's approval. Losing the host token means losing control of the room.
+- Until the enforcement ticket is merged, anyone who knows a room code can open or close that room. Losing the host token means losing control of the actions that require it.
 - The tokens are not user authentication. Anyone can create rooms, and anyone who knows the code of an open room can join, any number of times. So a kick or an expired QR token does not keep a person out, and one person can vote more than once by joining again.
 - The per-device rate limit (Q4) and profanity filter (Q5) are not in this contract.
 - Rooms, tokens and subscribers live in the memory of one process. A restart loses them, and running several instances would need a different design (Q3).
