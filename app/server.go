@@ -9,6 +9,11 @@ import (
 //go:embed web
 var webFS embed.FS
 
+type server struct {
+	http.Handler
+	rooms *roomStore
+}
+
 func newServer() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -25,5 +30,5 @@ func newServer() http.Handler {
 		panic(err)
 	}
 	mux.Handle("/", http.FileServer(http.FS(sub)))
-	return mux
+	return &server{Handler: mux, rooms: rooms}
 }

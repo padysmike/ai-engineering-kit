@@ -15,7 +15,7 @@ const qrTokenLifetime = 5 * time.Minute
 var errBadQRToken = errors.New("QR token is invalid or expired")
 
 // A QR token is "<generation>.<expiry>.<signature>". Rotating the QR code
-// will move the room to a new generation.
+// moves the room to a new generation.
 func (r room) newQRToken(now time.Time) string {
 	claims := r.qrGenerationClaim() + "." + strconv.FormatInt(now.Add(qrTokenLifetime).Unix(), 10)
 	return claims + "." + r.signQRClaims(claims)
@@ -43,4 +43,16 @@ func (r room) signQRClaims(claims string) string {
 	mac := hmac.New(sha256.New, []byte(r.qrKey))
 	mac.Write([]byte(r.code + "." + claims))
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func (s *roomStore) rotateQR(code string) (room, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	found, ok := s.byCode[code]
+	if !ok {
+		return room{}, errRoomNotFound
+	}
+	found.qrGeneration++
+	s.byCode[code] = found
+	return found.snapshot(), nil
 }

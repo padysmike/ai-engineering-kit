@@ -101,10 +101,10 @@ No response or event contains a session token, apart from the join response that
 - Opening the URL loads the page and changes nothing. The page then sends `POST /rooms/{code}/participants` with `{"qrToken":"..."}`.
 - If a join carries `qrToken`, the server accepts it only if it is valid for that room and not expired. Otherwise it answers `403` and adds no participant. The page does not retry without the token.
 - A join without `qrToken` remains the manual room-code join.
-- Rotating makes earlier QR tokens invalid. It does not change the room code or sign anyone out (Q6, Q7).
-- `GET /qr.png` draws the QR code of the URL that `GET /qr` would return at that moment. The host's page fetches it with the host token and shows it from a `blob:` URL, so its content security policy allows `img-src 'self' blob:`. Both responses carry `Cache-Control: no-store`.
+- Rotating makes earlier QR tokens invalid at once. It does not change the room code or sign anyone out (Q6, Q7). The host can rotate in any room state.
+- `GET /qr.png` draws the QR code of the URL that `GET /qr` would return at that moment. The host's page fetches it with the host token and shows it from a `blob:` URL, so its content security policy allows `img-src 'self' blob:`. These responses, and the one from rotating, carry `Cache-Control: no-store`.
 - The Go standard library has no QR encoder. The server uses `rsc.io/qr` v0.2.0 (BSD-3-Clause), approved by Michal on 2026-11-26.
-- The QR token is signed with HMAC-SHA256 under a random key of the room. It covers the room code, a generation number for later rotation, and the expiry time.
+- The QR token is signed with HMAC-SHA256 under a random key of the room. It covers the room code, the generation number that rotating increases, and the expiry time.
 - The URL is `<scheme>://<host>/#room=<code>&qr=<token>`, with the scheme and host of the request that asked for it. The token is in the fragment, which a browser does not send to the server. A host who opens the app as `localhost` therefore gets a QR code that other devices cannot use.
 - A QR token lasts 5 minutes (provisional, Q6). The host's screen fetches a new one every minute.
 - The join body may be empty or JSON, at most 4096 bytes. Anything else is `400`.
