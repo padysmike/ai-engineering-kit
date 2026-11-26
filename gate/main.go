@@ -226,7 +226,7 @@ func checkProtected(changes []change, o options) result {
 var processControl = []string{"func TestMain(", "syscall.Exit", "testing.Testing()", `flag.Lookup("test.`}
 
 func checkTestMain(o options, baseSHA, branchSHA string) result {
-	diff, err := git(o.repo, "diff", "-U0", "--no-color", baseSHA+"..."+branchSHA, "--", "*_test.go")
+	diff, err := git(o.repo, "diff", "-U0", "--no-color", baseSHA+"..."+branchSHA, "--", "*.go")
 	if err != nil {
 		return result{name: "test process check failed", detail: []string{err.Error()}}
 	}
@@ -330,15 +330,20 @@ func restoreTrusted(repo, worktree, baseSHA string) error {
 }
 
 func runTarget(box sandbox, run checkRun) result {
+	if output, err := runCheck(box, run); err != nil {
+		return result{name: run.target, detail: tail(output, detailLines)}
+	}
+	return result{name: run.target, ok: true}
+}
+
+func runCheck(box sandbox, run checkRun) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), checkTimeout)
 	defer cancel()
 	cmd := box.command(ctx, run)
 	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &buf, &buf
-	if err := cmd.Run(); err != nil {
-		return result{name: run.target, detail: tail(buf.String(), detailLines)}
-	}
-	return result{name: run.target, ok: true}
+	err := cmd.Run()
+	return buf.String(), err
 }
 
 func doMerge(o options, branchSHA string) result {

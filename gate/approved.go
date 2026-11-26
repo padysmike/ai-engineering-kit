@@ -18,7 +18,7 @@ func approvedAlone(o options, run checkRun, branchSHA string) []result {
 		return []result{{name: "approved tests alone could not be prepared", detail: []string{err.Error()}}}
 	}
 	if len(added) == 0 {
-		return nil
+		return proofOfPass(o, run, branchSHA)
 	}
 	dir, err := approvedCopy(run.dir, added)
 	if err != nil {
@@ -35,7 +35,7 @@ func approvedAlone(o options, run checkRun, branchSHA string) []result {
 		res.name = target + " (approved tests alone)"
 		results = append(results, res)
 	}
-	return results
+	return append(results, proofOfPass(o, run, branchSHA)...)
 }
 
 func addedApprovedTests(repo, baseSHA, branchSHA string) ([]string, error) {
