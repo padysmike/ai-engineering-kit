@@ -18,16 +18,25 @@ The base branch is always the **GitHub default branch** (see `AGENTS.md`). The r
    - Gate token: Contents RW, Pull requests RW, Commit statuses RW. Save to `~/.config/ai-engineering-kit/gate-github-token`.
 2. Check image: `docker build -t ai-engineering-checks -f gate/checks.Dockerfile gate`.
 3. Gate checkout outside the sandbox mount: `~/gate/ai-engineering-kit` (a separate clone), binary built with `make gate-build` there.
-4. Restart harness-docker with the agent token, so the sandbox never sees the broad one:
+4. The lecture runs in its own harness-docker stack, not the personal one:
+   - Harness checkout: `~/git/3rd/harness-docker-lecture`.
+   - Claude config: `~/.claude-lecture`.
+   - Launchers: `harness-docker-ctrl-lecture` and `claude-docker-lecture`.
+   - The launcher wrappers export the fine-grained agent token from `~/.config/ai-engineering-kit/agent-github-token` as `GITHUB_TOKEN` and unset `SSH_AUTH_SOCK`. The sandbox has no SSH key and pushes over HTTPS with the agent token only.
+   - The sandbox mounts only `~/git/lecture` (an HTTPS clone of this repo). Nothing else from `~/git` is visible.
+   - MCP servers in `~/.claude-lecture`:
+     - `aimebu` (user scope).
+     - `gate` (local scope, `http://172.17.0.1:8765/mcp`, bearer token from `~/.config/ai-engineering-kit/gate-mcp-token`).
+     - `atlassian` (local scope, `https://mcp.atlassian.com/v1/mcp`, Jira project `QAAT`).
 
-        GITHUB_TOKEN=$(cat ~/.config/ai-engineering-kit/agent-github-token) harness-docker-ctrl stop
-        GITHUB_TOKEN=$(cat ~/.config/ai-engineering-kit/agent-github-token) harness-docker-ctrl start
-
-5. MCP servers for this project (local scope, in the Claude config the sandbox mounts): `gate` (HTTP on the docker bridge, bearer token) and `atlassian` (Jira, OAuth). Log in to Atlassian once on the host with `claude` then `/mcp`; the sandbox reuses the login.
+     First login on the host: `CLAUDE_CONFIG_DIR=~/.claude-lecture claude`, then `/login` and `/mcp`.
+   - Kit skills are symlinked into `~/.claude-lecture/skills`.
+   - Gate: start with `~/gate/start-gate.sh <base-branch>`. Approve with `~/gate/approve.sh approvals | approve <PR> | deny <PR> --reason "..."`.
+   - The host firewall (ufw) must allow tcp 8765 from `172.16.0.0/12`. Without it the sandbox cannot reach the gate.
 
 ## Before each session
     ~/gate/start-gate.sh test        # or the lecture branch; leave this terminal open
-    claude-docker                    # in the repo, in another terminal
+    cd ~/git/lecture/ai-engineering-kit && claude-docker-lecture   # in another terminal
 
 In Claude, `/mcp` must show `gate`, `atlassian` and `aimebu` as connected.
 
@@ -48,7 +57,7 @@ The base branch must always be green: the gate requires a pass for every test an
 5. **Implement.** Per ticket: `implement-ticket` (branch from the default branch, add the ticket's `.feature`, steps and code, `make check` green), then `open-pr`.
 6. **Review.** `review` skill on the PR (optional, a second agent over aimebu works well).
 7. **Gate.** The agent calls `gate_merge` with the branch name. The gate checks in a container, posts status `gate`, merges. Show the gate terminal log.
-8. **Show the hard rule.** Ask the agent to "fix" an existing scenario (for example change `health.feature`). The gate answers `NEEDS APPROVAL`. In the host terminal: `bin/gate approvals`, then `bin/gate approve <PR>` or `bin/gate deny <PR> --reason ...`.
+8. **Show the hard rule.** Ask the agent to "fix" an existing scenario (for example change `health.feature`). The gate answers `NEEDS APPROVAL`. In the host terminal: `~/gate/approve.sh approvals`, then `~/gate/approve.sh approve <PR>` or `~/gate/approve.sh deny <PR> --reason ...`.
 
 ## When the gate blocks
 - Adding tests and scenarios never needs approval. Modifying, renaming or deleting ones already on the base does, and so do protected paths.
