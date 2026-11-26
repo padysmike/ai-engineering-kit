@@ -8,7 +8,7 @@ metadata:
 
 # Open a pull request
 
-1. Confirm the branch is not `main` and `make check` passes.
+1. Confirm the branch is neither the base branch (see `AGENTS.md`) nor `main`, and `make check` passes.
 2. Title: the ticket id and a short imperative summary.
 3. Description: what changed, why, how it was tested, scenarios covered, anything a reviewer should look at first.
-4. Open the PR against `main`. Do not merge it. The gate and a human decide.
+4. Open the PR against the base branch. Do not merge it. The gate and a human decide.
