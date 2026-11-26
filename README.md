@@ -21,7 +21,7 @@ Materials for the lecture "Ze života developera v AI době" (a day in the life 
     bin/gate --sandbox-image ai-engineering-checks --branch <branch>
 
 ## Skills in other tools
-Skills live once, in `skills/`. Point your tool at that directory (symlink or copy into `.claude/skills`, `.codex/skills`, `.github/skills`, `.gemini/skills`, or use the `skills` CLI). Validate with `make validate-skills`.
+Skills live once, in `skills/`; Claude Code finds them through `.claude/skills`. Point other tools at that directory (symlink or copy into `.claude/skills`, `.codex/skills`, `.github/skills`, `.gemini/skills`, or use the `skills` CLI). Validate with `make validate-skills`.
 
 ## License
 MIT
