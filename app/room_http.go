@@ -80,7 +80,7 @@ func roomErrorStatus(err error) int {
 		return http.StatusUnauthorized
 	case errors.Is(err, errNotParticipant):
 		return http.StatusForbidden
-	case errors.Is(err, errPostTooLong):
+	case errors.Is(err, errPostTooLong), errors.Is(err, errUnknownSort):
 		return http.StatusBadRequest
 	default:
 		return http.StatusConflict

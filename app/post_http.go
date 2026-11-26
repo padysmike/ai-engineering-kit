@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -91,12 +92,30 @@ func feedHandler(rooms *roomStore) http.HandlerFunc {
 			writeRoomError(w, err)
 			return
 		}
+		order, err := requestedOrder(r)
+		if err != nil {
+			writeRoomError(w, err)
+			return
+		}
+		slices.SortFunc(found.posts, order)
 		feed := feedView{Posts: make([]postView, 0, len(found.posts))}
 		for _, p := range found.posts {
 			feed.Posts = append(feed.Posts, viewOfPost(p))
 		}
 		writeJSON(w, http.StatusOK, feed)
 	}
+}
+
+func requestedOrder(r *http.Request) (postOrder, error) {
+	query := r.URL.Query()
+	if !query.Has("sort") {
+		return newestFirst, nil
+	}
+	order, ok := postOrders[query.Get("sort")]
+	if !ok {
+		return nil, errUnknownSort
+	}
+	return order, nil
 }
 
 func voteHandler(rooms *roomStore) http.HandlerFunc {

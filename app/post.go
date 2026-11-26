@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"errors"
 	"slices"
 	"unicode/utf8"
@@ -13,7 +14,18 @@ var (
 	errNotParticipant = errors.New("only a participant can do this")
 	errPostTooLong    = errors.New("post is longer than 280 characters")
 	errPostNotFound   = errors.New("post not found")
+	errUnknownSort    = errors.New("unknown sort")
 )
+
+type postOrder func(a, b post) int
+
+var postOrders = map[string]postOrder{"newest": newestFirst, "top": mostVotedFirst}
+
+func newestFirst(a, b post) int { return cmp.Compare(b.id, a.id) }
+
+func mostVotedFirst(a, b post) int {
+	return cmp.Or(cmp.Compare(len(b.voterIDs), len(a.voterIDs)), cmp.Compare(a.id, b.id))
+}
 
 type participant struct {
 	id    int

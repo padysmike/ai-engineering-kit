@@ -77,7 +77,7 @@ This is the merged behaviour. Paths and field names do not change.
 - A request body for a new post may be at most 4096 bytes, which fits 280 characters in any JSON escaping. A larger body is `400`.
 - A closed room rejects new posts, new votes and vote removal. Its feed stays readable to earlier participants.
 - Both orders put pinned posts first. Within the pinned posts, and within the others, the normal order applies: `sort=newest` is descending `id`; `sort=top` is descending `votes`, with ties oldest first (ascending `id`). Without `sort`, the order is `newest`.
-- The code merged so far returns the oldest post first. Slice 6 (QAAT-9) switches it to `newest` and adds the `sort` parameter. Pinning comes with slice 12.
+- Any other value of `sort`, including an empty one, is `400`. Pinning comes with slice 12.
 - Marking as answered does not change the order (Q18). Neither mark can be undone (Q18).
 - Whether participants may vote for their own posts is undecided (Q16).
 - Votes are exposed as a count only, never as who voted (Q2).
