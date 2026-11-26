@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -27,6 +28,7 @@ type feedView struct {
 func registerPostRoutes(mux *http.ServeMux, rooms *roomStore) {
 	mux.HandleFunc("POST /rooms/{code}/posts", submitPostHandler(rooms))
 	mux.HandleFunc("GET /rooms/{code}/posts", feedHandler(rooms))
+	mux.HandleFunc("POST /rooms/{code}/posts/{postID}/vote", voteHandler(rooms))
 }
 
 func submitPostHandler(rooms *roomStore) http.HandlerFunc {
@@ -97,6 +99,36 @@ func feedHandler(rooms *roomStore) http.HandlerFunc {
 	}
 }
 
+func voteHandler(rooms *roomStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		code := r.PathValue("code")
+		voter, err := participantOfRequest(rooms, code, bearerToken(r))
+		if err != nil {
+			writeRoomError(w, err)
+			return
+		}
+		postID, err := strconv.Atoi(r.PathValue("postID"))
+		if err != nil {
+			writeRoomError(w, errPostNotFound)
+			return
+		}
+		voted, err := rooms.toggleVote(code, postID, voter.id)
+		if err != nil {
+			writeRoomError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, viewOfPost(voted))
+	}
+}
+
+func participantOfRequest(rooms *roomStore, code, token string) (participant, error) {
+	found, err := rooms.find(code)
+	if err != nil {
+		return participant{}, err
+	}
+	return found.participantByToken(token)
+}
+
 func bearerToken(r *http.Request) string {
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok {
@@ -106,5 +138,5 @@ func bearerToken(r *http.Request) string {
 }
 
 func viewOfPost(p post) postView {
-	return postView{ID: p.id, Alias: p.alias, Text: p.text}
+	return postView{ID: p.id, Alias: p.alias, Text: p.text, Votes: len(p.voterIDs)}
 }

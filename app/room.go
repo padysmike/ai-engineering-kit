@@ -68,6 +68,9 @@ func (s *roomStore) find(code string) (room, error) {
 func (r room) snapshot() room {
 	r.participants = slices.Clone(r.participants)
 	r.posts = slices.Clone(r.posts)
+	for i := range r.posts {
+		r.posts[i] = r.posts[i].snapshot()
+	}
 	return r
 }
 
