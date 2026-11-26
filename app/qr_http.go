@@ -15,13 +15,23 @@ type qrView struct {
 type hostQRHandler func(w http.ResponseWriter, joinURL string)
 
 func registerQRRoutes(mux *http.ServeMux, rooms *roomStore) {
-	mux.HandleFunc("GET /rooms/{code}/qr", forHostQR(rooms, writeQRURL))
-	mux.HandleFunc("GET /rooms/{code}/qr.png", forHostQR(rooms, writeQRImage))
+	mux.HandleFunc("GET /rooms/{code}/qr", forHostQR(rooms, currentQR, writeQRURL))
+	mux.HandleFunc("GET /rooms/{code}/qr.png", forHostQR(rooms, currentQR, writeQRImage))
+	mux.HandleFunc("POST /rooms/{code}/qr/rotate", forHostQR(rooms, rotatedQR, writeQRURL))
 }
 
-func forHostQR(rooms *roomStore, write hostQRHandler) http.HandlerFunc {
+type qrSource func(rooms *roomStore, hosted room) (room, error)
+
+func currentQR(_ *roomStore, hosted room) (room, error) { return hosted, nil }
+
+func rotatedQR(rooms *roomStore, hosted room) (room, error) { return rooms.rotateQR(hosted.code) }
+
+func forHostQR(rooms *roomStore, source qrSource, write hostQRHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		found, err := hostedRoom(rooms, r.PathValue("code"), bearerToken(r))
+		if err == nil {
+			found, err = source(rooms, found)
+		}
 		if err != nil {
 			writeRoomError(w, err)
 			return

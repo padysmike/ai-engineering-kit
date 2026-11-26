@@ -18,6 +18,7 @@ let stream = null;
 let live = false;
 let streamedChanges = 0;
 let qrWanted = false;
+let qrRequests = 0;
 
 function loadSession() {
   try {
@@ -92,6 +93,7 @@ function clearRoom() {
   byId("participant-count").textContent = "";
   byId("open-room").disabled = true;
   byId("close-room").disabled = true;
+  byId("rotate-qr").disabled = true;
   posts = new Map();
   qrWanted = false;
   replaceQRImage(null);
@@ -107,6 +109,7 @@ function showRoom(room) {
   byId("participant-count").textContent = room.participantCount;
   byId("open-room").disabled = room.state !== "draft";
   byId("close-room").disabled = room.state !== "open";
+  byId("rotate-qr").disabled = room.state !== "open";
   syncQR(room);
 }
 
@@ -164,10 +167,12 @@ function replaceQRImage(url) {
 async function renewQR() {
   if (!qrWanted || !session) return;
   const { code, token } = session;
+  const request = ++qrRequests;
   try {
     const image = await send("GET", `${roomPath()}/qr.png`, { token });
     const blob = await image.blob();
-    if (qrWanted && session?.code === code) replaceQRImage(URL.createObjectURL(blob));
+    // A slower, older request must not bring back a code that was rotated away.
+    if (request === qrRequests && qrWanted && session?.code === code) replaceQRImage(URL.createObjectURL(blob));
   } catch (error) {
     showError(error.message);
   }
@@ -353,6 +358,12 @@ async function changeRoom(change) {
   await refreshUnlessLive();
 }
 
+async function rotateQR() {
+  await api("POST", `${roomPath()}/qr/rotate`, { token: session.token });
+  replaceQRImage(null);
+  await renewQR();
+}
+
 async function submitPost() {
   await api("POST", `${roomPath()}/posts`, { token: session.token, body: { text: byId("post-text").value } });
   byId("post-form").reset();
@@ -397,6 +408,7 @@ onSubmit("post-form", submitPost);
 byId("create-room").addEventListener("click", () => perform(createRoom));
 byId("open-room").addEventListener("click", () => perform(() => changeRoom("open")));
 byId("close-room").addEventListener("click", () => perform(() => changeRoom("close")));
+byId("rotate-qr").addEventListener("click", () => perform(rotateQR));
 byId("reload").addEventListener("click", () => perform(reload));
 byId("sort").addEventListener("change", showFeed);
 byId("post-text").addEventListener("input", showPostLength);
