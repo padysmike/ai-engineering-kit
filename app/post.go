@@ -98,6 +98,7 @@ func (s *roomStore) addPost(code, alias, text string) (post, error) {
 	added := post{id: len(found.posts) + 1, alias: alias, text: text}
 	found.posts = append(found.posts, added)
 	s.byCode[code] = found
+	s.publishLocked(code, eventPost, viewOfPost(added))
 	return added, nil
 }
 
@@ -116,5 +117,6 @@ func (s *roomStore) toggleVote(code string, postID, participantID int) (post, er
 		return post{}, errRoomNotOpen
 	}
 	found.posts[i].toggleVote(participantID)
+	s.publishLocked(code, eventPost, viewOfPost(found.posts[i]))
 	return found.posts[i].snapshot(), nil
 }
