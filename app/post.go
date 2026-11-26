@@ -22,10 +22,23 @@ type postOrder func(a, b post) int
 
 var postOrders = map[string]postOrder{"newest": newestFirst, "top": mostVotedFirst}
 
-func newestFirst(a, b post) int { return cmp.Compare(b.id, a.id) }
+func pinnedFirst(a, b post) int {
+	switch {
+	case a.pinned == b.pinned:
+		return 0
+	case a.pinned:
+		return -1
+	default:
+		return 1
+	}
+}
+
+func newestFirst(a, b post) int {
+	return cmp.Or(pinnedFirst(a, b), cmp.Compare(b.id, a.id))
+}
 
 func mostVotedFirst(a, b post) int {
-	return cmp.Or(cmp.Compare(len(b.voterIDs), len(a.voterIDs)), cmp.Compare(a.id, b.id))
+	return cmp.Or(pinnedFirst(a, b), cmp.Compare(len(b.voterIDs), len(a.voterIDs)), cmp.Compare(a.id, b.id))
 }
 
 type participant struct {
@@ -39,6 +52,8 @@ type post struct {
 	alias    string
 	text     string
 	hidden   bool
+	pinned   bool
+	answered bool
 	voterIDs []int
 }
 

@@ -100,6 +100,15 @@ button:disabled, body[aria-busy="true"] button { opacity: 0.5; }
 
 .hidden-mark { font-style: italic; }
 
+.mark {
+  display: inline-block;
+  margin: 0.25rem 0.5rem 0.25rem 0;
+  padding: 0 0.5rem;
+  border: 1px solid #1d4ed8;
+  border-radius: 0.5rem;
+  color: #1d4ed8;
+}
+
 #qr {
   width: 100%;
   max-width: 20rem;

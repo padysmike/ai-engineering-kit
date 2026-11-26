@@ -16,11 +16,13 @@ type newPostRequest struct {
 }
 
 type postView struct {
-	ID     int    `json:"id"`
-	Alias  string `json:"alias"`
-	Text   string `json:"text"`
-	Votes  int    `json:"votes"`
-	Hidden bool   `json:"hidden,omitempty"`
+	ID       int    `json:"id"`
+	Alias    string `json:"alias"`
+	Text     string `json:"text"`
+	Votes    int    `json:"votes"`
+	Hidden   bool   `json:"hidden,omitempty"`
+	Pinned   bool   `json:"pinned"`
+	Answered bool   `json:"answered"`
 }
 
 type feedView struct {
@@ -160,5 +162,8 @@ func viewsOfPosts(posts []post) []postView {
 }
 
 func viewOfPost(p post) postView {
-	return postView{ID: p.id, Alias: p.alias, Text: p.text, Votes: len(p.voterIDs), Hidden: p.hidden}
+	return postView{
+		ID: p.id, Alias: p.alias, Text: p.text, Votes: len(p.voterIDs),
+		Hidden: p.hidden, Pinned: p.pinned, Answered: p.answered,
+	}
 }
