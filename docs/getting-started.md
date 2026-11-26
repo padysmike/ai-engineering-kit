@@ -64,4 +64,4 @@ The default branch must always be green: the gate requires a pass for every test
 - Coverage: 70 percent total, 80 percent of changed lines. Ask the agent to run `make check` before `open-pr`.
 - `approved tests missing on head: rebase onto <base>`: the base gained tests since the branch split off. Rebase, push and run the gate again.
 - A red default branch blocks every pull request. Never merge red scenarios.
-- Inside some sandboxes `make check` cannot pass the gate's own tests (a git wrapper that refuses pushes to `main`, even to a throwaway local repository). The gate's container is the authority.
+- Inside some sandboxes `make check` cannot pass the gate's own tests (a git wrapper that refuses pushes, even to a throwaway local repository). There, run `make check SKIP_GATE_TESTS=1`. It leaves `gate/` out and says so. The gate's container is the authority.

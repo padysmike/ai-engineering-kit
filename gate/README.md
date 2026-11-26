@@ -85,6 +85,8 @@ Every request is logged to stderr, one line when it arrives and one when it fini
 | `diff-coverage` | coverage of statements changed against the base branch, minimum 80 percent (`scripts/diffcover`) |
 | `validate-skills` | structure of `skills/*/SKILL.md` |
 
+`make check SKIP_GATE_TESTS=1` leaves `gate/` out of `test`, `coverage` and `diff-coverage` on a machine where these tests cannot run, for example an agent sandbox that refuses local git pushes. `vet` and `lint` still cover `gate/`. It is a local switch only: the gate does not pass the variable to its checks. After a change in `gate/`, run `go test ./gate` where it works.
+
 The gate exports `GATE_BASE_SHA` so `diff-coverage` compares against the trusted base commit. `make vuln` (govulncheck) is not part of the gate because it needs network access.
 
 ## Turning checks off

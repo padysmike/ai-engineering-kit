@@ -4,6 +4,7 @@ Instructions for any AI coding agent working in this repository.
 
 ## Commands
 - `make check` runs everything: format, vet, lint (including function length and complexity), tests with the race detector, scenarios, total coverage, coverage of changed lines, skill validation.
+- `make check SKIP_GATE_TESTS=1` is for sandboxes where the gate's tests cannot run because local git pushes are refused. It leaves `gate/` out of the tests and both coverage checks. Say in your report that you used it, and do not use it to verify a change in `gate/`.
 - `make vuln` runs govulncheck (needs network); run it before a release.
 - `make bdd` runs only the scenarios in `scenarios/`.
 - `make run` starts the app on `:8080`.

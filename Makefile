@@ -2,6 +2,14 @@ COVERAGE_MIN ?= 70
 DIFF_COVERAGE_MIN ?= 80
 GO ?= go
 
+# SKIP_GATE_TESTS=1 is for agent sandboxes that refuse the local git pushes the
+# gate's tests make. The gate itself never passes it to its checks.
+TEST_PACKAGES = ./...
+ifeq ($(SKIP_GATE_TESTS),1)
+TEST_PACKAGES = $(or $(shell $(GO) list ./... | grep -v '/gate$$'),$(error could not list the packages))
+WARN_GATE_SKIPPED = @echo "warning: SKIP_GATE_TESTS=1: $@ leaves out gate/, so its tests and changed lines are not checked"
+endif
+
 .PHONY: check fmt-check vet lint test bdd coverage diff-coverage vuln validate-skills run gate-build
 
 check: fmt-check vet lint test bdd coverage diff-coverage validate-skills ## everything the gate runs
@@ -18,16 +26,19 @@ lint:
 	else echo "warning: golangci-lint not installed, skipping lint"; fi
 
 test:
-	@$(GO) test -race ./...
+	$(WARN_GATE_SKIPPED)
+	@$(GO) test -race $(TEST_PACKAGES)
 
 bdd:
 	@$(GO) test ./app -run TestFeatures -count=1 -v
 
 coverage:
-	@COVERAGE_MIN=$(COVERAGE_MIN) sh scripts/check-coverage.sh
+	$(WARN_GATE_SKIPPED)
+	@COVERAGE_MIN=$(COVERAGE_MIN) TEST_PACKAGES="$(TEST_PACKAGES)" sh scripts/check-coverage.sh
 
 diff-coverage:
-	@p=$$(mktemp); $(GO) test -coverprofile=$$p ./... >/dev/null && $(GO) run ./scripts/diffcover --profile $$p --min $(DIFF_COVERAGE_MIN); s=$$?; rm -f $$p; exit $$s
+	$(WARN_GATE_SKIPPED)
+	@p=$$(mktemp); $(GO) test -coverprofile=$$p $(TEST_PACKAGES) >/dev/null && $(GO) run ./scripts/diffcover --profile $$p --min $(DIFF_COVERAGE_MIN); s=$$?; rm -f $$p; exit $$s
 
 vuln:
 	@if command -v govulncheck >/dev/null 2>&1; then govulncheck ./...; else echo "govulncheck is required: go install golang.org/x/vuln/cmd/govulncheck@latest"; exit 1; fi
