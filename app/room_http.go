@@ -13,13 +13,21 @@ type roomView struct {
 	ParticipantCount int       `json:"participantCount"`
 }
 
+type createdRoomView struct {
+	roomView
+	HostToken string `json:"hostToken"`
+}
+
 type participantView struct {
+	ID    int    `json:"id"`
 	Alias string `json:"alias"`
+	Token string `json:"token"`
 }
 
 func registerRoomRoutes(mux *http.ServeMux, rooms *roomStore) {
 	mux.HandleFunc("POST /rooms", func(w http.ResponseWriter, _ *http.Request) {
-		writeRoom(w, http.StatusCreated, rooms.create())
+		created := rooms.create()
+		writeJSON(w, http.StatusCreated, createdRoomView{roomView: viewOfRoom(created), HostToken: created.hostToken})
 	})
 	mux.HandleFunc("GET /rooms/{code}", findHandler(rooms))
 	mux.HandleFunc("POST /rooms/{code}/participants", joinHandler(rooms))
@@ -40,12 +48,12 @@ func findHandler(rooms *roomStore) http.HandlerFunc {
 
 func joinHandler(rooms *roomStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		alias, err := rooms.join(r.PathValue("code"))
+		joined, err := rooms.join(r.PathValue("code"))
 		if err != nil {
 			writeRoomError(w, err)
 			return
 		}
-		writeJSON(w, http.StatusCreated, participantView{Alias: alias})
+		writeJSON(w, http.StatusCreated, participantView{ID: joined.id, Alias: joined.alias, Token: joined.token})
 	}
 }
 
@@ -61,15 +69,28 @@ func transitionHandler(rooms *roomStore, from, to roomState) http.HandlerFunc {
 }
 
 func writeRoomError(w http.ResponseWriter, err error) {
-	status := http.StatusConflict
-	if errors.Is(err, errRoomNotFound) {
-		status = http.StatusNotFound
+	http.Error(w, err.Error(), roomErrorStatus(err))
+}
+
+func roomErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, errRoomNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, errUnknownToken):
+		return http.StatusUnauthorized
+	case errors.Is(err, errNotParticipant):
+		return http.StatusForbidden
+	default:
+		return http.StatusConflict
 	}
-	http.Error(w, err.Error(), status)
 }
 
 func writeRoom(w http.ResponseWriter, status int, r room) {
-	writeJSON(w, status, roomView{Code: r.code, State: r.state, ParticipantCount: len(r.aliases)})
+	writeJSON(w, status, viewOfRoom(r))
+}
+
+func viewOfRoom(r room) roomView {
+	return roomView{Code: r.code, State: r.state, ParticipantCount: len(r.participants)}
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
