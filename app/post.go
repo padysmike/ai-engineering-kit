@@ -101,6 +101,9 @@ func (s *roomStore) toggleVote(code string, postID, participantID int) (post, er
 	if i < 0 {
 		return post{}, errPostNotFound
 	}
+	if found.state != roomOpen {
+		return post{}, errRoomNotOpen
+	}
 	found.posts[i].toggleVote(participantID)
 	return found.posts[i].snapshot(), nil
 }
