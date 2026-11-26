@@ -32,7 +32,7 @@ func TestBehindBase_BaseGainedTests_FailsAtOnceAndSaysToRebase(t *testing.T) {
 
 	code, out := gateBranch(t, dir)
 
-	_, status := statusFor(code, out)
+	_, status := statusFor(code, out, nil)
 	if want := "gate blocked: 2 approved tests missing on head: rebase onto main"; code != exitBlocked || status != want {
 		t.Fatalf("exit %d, status %q, want %q\n%s", code, status, want, out)
 	}
@@ -80,15 +80,5 @@ func TestGateOptions_PullRequest_BaseNamedWithoutRemote(t *testing.T) {
 
 	if err != nil || o.base != "origin/test" || o.baseName() != "test" {
 		t.Errorf("base = %q, name = %q, err = %v", o.base, o.baseName(), err)
-	}
-}
-
-func TestPrintResult_MultiLineDetail_CannotFakeAGateLine(t *testing.T) {
-	var out strings.Builder
-
-	printResult(&out, painter{}, result{name: "bdd", detail: []string{"boom\n" + skippedLinePrefix + "lint" + skippedReason}})
-
-	if got := skippedChecks(out.String()); len(got) != 0 {
-		t.Errorf("skipped = %v, want none\n%s", got, out.String())
 	}
 }

@@ -187,10 +187,10 @@ func runPullRequest(o prOptions, out io.Writer) int {
 		return exitError
 	}
 	var buf bytes.Buffer
-	code := execute(gateOpts, &buf)
+	code, skipped := executeNamingSkipped(gateOpts, &buf)
 	say(out, "%s", buf.String())
 
-	state, description := statusFor(code, buf.String())
+	state, description := statusFor(code, buf.String(), skipped)
 	if err := o.gh.postStatus(sha, state, description); err != nil {
 		say(out, "gate: %v\n", err)
 		return exitError
@@ -238,9 +238,9 @@ func fetchPullRequest(o prOptions) (string, pullRequest, error) {
 	return sha, pr, err
 }
 
-func statusFor(code int, output string) (string, string) {
+func statusFor(code int, output string, skipped []string) (string, string) {
 	state, description := verdictFor(code, output)
-	if skipped := skippedChecks(output); code != exitError && len(skipped) > 0 {
+	if len(skipped) > 0 {
 		description += " (skipped: " + strings.Join(skipped, ", ") + ")"
 	}
 	return state, description

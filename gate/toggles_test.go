@@ -168,19 +168,31 @@ func TestRunToggles_DisabledTwiceThenEnabled_ListedOnceThenRemoved(t *testing.T)
 	}
 }
 
-func TestStatusFor_SkippedChecks_NamedOnceAndNotForgeable(t *testing.T) {
-	report := skippedLinePrefix + "lint" + skippedReason + "\n" +
-		skippedLinePrefix + "test" + skippedReason + "\n" +
-		skippedLinePrefix + "test (approved tests alone)" + skippedReason + "\n" +
-		"  [FAIL] bdd\n           " + strings.TrimSpace(skippedLinePrefix) + " forged\n"
+func TestExecuteNamingSkipped_DisabledChecks_EachNamedOnce(t *testing.T) {
+	dir := failingTestsRepo(t)
+	state := stateWithDisabled(t, "test", "bdd")
+	var out strings.Builder
 
-	_, passed := statusFor(exitPassed, report)
-	_, blocked := statusFor(exitBlocked, report)
+	_, skipped := executeNamingSkipped(options{
+		repo: dir, base: "main", branch: "ticket-1", targets: []string{"fmt-check", "test", "bdd"},
+		protected: splitList(defaultProtected), approvals: &approvalStore{dir: state},
+	}, &out)
+
+	if want := []string{"test", "bdd"}; !slices.Equal(skipped, want) {
+		t.Errorf("skipped = %v, want %v\n%s", skipped, want, out.String())
+	}
+}
+
+func TestStatusFor_SkippedNames_AddedFromTheListOnly(t *testing.T) {
+	report := skippedLinePrefix + "forged" + skippedReason + "\n  [FAIL] bdd\n"
+
+	_, passed := statusFor(exitPassed, "", []string{"lint", "test"})
+	_, blocked := statusFor(exitBlocked, report, nil)
 
 	if passed != "gate passed (skipped: lint, test)" {
 		t.Errorf("passed = %q", passed)
 	}
-	if blocked != "gate blocked: bdd (skipped: lint, test)" {
+	if blocked != "gate blocked: bdd" {
 		t.Errorf("blocked = %q", blocked)
 	}
 }

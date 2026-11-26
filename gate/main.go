@@ -19,7 +19,6 @@ const (
 	defaultProtected = "Makefile,scripts/,gate/,skills/,.claude/,.github/,.golangci.yml,AGENTS.md,CLAUDE.md"
 	checkTimeout     = 10 * time.Minute
 	detailLines      = 6
-	detailIndent     = "           "
 	trustedMakefile  = "Makefile"
 	trustedScripts   = "scripts"
 
@@ -108,12 +107,17 @@ func run(args []string, out io.Writer) int {
 }
 
 func execute(o options, out io.Writer) int {
+	code, _ := executeNamingSkipped(o, out)
+	return code
+}
+
+func executeNamingSkipped(o options, out io.Writer) (int, []string) {
 	oc, err := evaluate(o)
 	if err != nil {
 		say(out, "gate: %v\n", err)
-		return exitError
+		return exitError, nil
 	}
-	return report(out, o, oc)
+	return report(out, o, oc), skippedIn(oc.results)
 }
 
 func isApprovalCommand(name string) bool {
@@ -234,7 +238,7 @@ func printResult(out io.Writer, p painter, r result) {
 	}
 	say(out, "  %s %s\n", p.red("[FAIL]"), r.name)
 	for _, line := range r.detail {
-		say(out, "%s%s\n", detailIndent, strings.ReplaceAll(line, "\n", "\n"+detailIndent))
+		say(out, "           %s\n", line)
 	}
 }
 

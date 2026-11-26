@@ -91,14 +91,11 @@ func skippedResult(check, label string) result {
 	return result{name: label, ok: true, skippedCheck: check}
 }
 
-// Only the gate's own result lines start with the prefix: the output of a
-// failed check is indented further, so a branch cannot add names here.
-func skippedChecks(output string) []string {
+func skippedIn(results []result) []string {
 	var names []string
-	for _, line := range strings.Split(output, "\n") {
-		if rest, ok := strings.CutPrefix(line, skippedLinePrefix); ok {
-			name, _, _ := strings.Cut(rest, " ")
-			names = append(names, name)
+	for _, r := range results {
+		if r.skippedCheck != "" {
+			names = append(names, r.skippedCheck)
 		}
 	}
 	return unique(names)
