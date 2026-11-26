@@ -19,11 +19,13 @@ const (
 var (
 	errRoomNotFound    = errors.New("room not found")
 	errStateTransition = errors.New("room state does not allow this change")
+	errRoomNotOpen     = errors.New("room is not open")
 )
 
 type room struct {
-	code  string
-	state roomState
+	code    string
+	state   roomState
+	aliases []string
 }
 
 type roomStore struct {
@@ -48,6 +50,32 @@ func (s *roomStore) create() room {
 	created := room{code: code, state: roomDraft}
 	s.byCode[code] = created
 	return created
+}
+
+func (s *roomStore) find(code string) (room, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	found, ok := s.byCode[code]
+	if !ok {
+		return room{}, errRoomNotFound
+	}
+	return found, nil
+}
+
+func (s *roomStore) join(code string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	found, ok := s.byCode[code]
+	if !ok {
+		return "", errRoomNotFound
+	}
+	if found.state != roomOpen {
+		return "", errRoomNotOpen
+	}
+	alias := randomAlias()
+	found.aliases = append(found.aliases, alias)
+	s.byCode[code] = found
+	return alias, nil
 }
 
 func (s *roomStore) transition(code string, from, to roomState) (room, error) {
