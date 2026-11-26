@@ -6,15 +6,23 @@ Materials for the lecture "Ze života developera v AI době" (a day in the life 
 | Path | Purpose |
 |---|---|
 | `skills/` | Tool-neutral skills (Agent Skills format): spec, ADR, roadmap, scaffold, implement, PR, review, logs |
-| `gate/` | Go merge gate that runs on the host and trusts only `main` |
+| `gate/` | Go merge gate that runs on the host and trusts only the base branch |
 | `scenarios/` | BDD requirements (approved; agents may not edit them) |
 | `app/*_steps_test.go` | godog step definitions for the scenarios, next to the code they exercise |
 | `docs/` | conventions, guardrails, ADRs, product description |
 | `app/` | skeleton of the product built during the lecture |
-| `scripts/` | check scripts used by the Makefile |
+| `scripts/` | `setup.sh` for your copy, and the check scripts used by the Makefile |
 
-## Quick start
-    go mod tidy         # first time only; commit go.mod and go.sum
+## Start here
+    git clone https://github.com/padysmike/ai-engineering-kit.git
+    cd ai-engineering-kit
+    scripts/setup.sh
+
+The script walks you through everything: your own copy of the repository, a project branch, the GitHub ruleset, two tokens, the merge gate and the MCP connection for your agent. Run it again at any time; `scripts/setup.sh --check` only reports what is missing. Then read `docs/getting-started.md`.
+
+`main` holds the kit. Your product lives on its own project branch, which setup makes the default branch.
+
+## Working on the kit itself
     make check          # needs Go 1.26+ (required by the MCP SDK); golangci-lint is optional
     make gate-build
     docker build -t ai-engineering-checks -f gate/checks.Dockerfile gate

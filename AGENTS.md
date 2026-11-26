@@ -7,6 +7,7 @@ Instructions for any AI coding agent working in this repository.
 - `make vuln` runs govulncheck (needs network); run it before a release.
 - `make bdd` runs only the scenarios in `scenarios/`.
 - `make run` starts the app on `:8080`.
+- `scripts/setup.sh` is for humans: it sets up tokens, the ruleset and the gate. Never run it.
 
 ## Base branch
 The base branch is the repository's default branch on GitHub: `gh repo view --json defaultBranchRef -q .defaultBranchRef.name`. Branch from its latest commit and open pull requests against it. `main` is the kit's source; target it only when it is the default branch.
@@ -19,6 +20,7 @@ The base branch is the repository's default branch on GitHub: `gh repo view --js
 - Specs, ADRs, code, comments and commit messages are in English.
 
 ## Where things are
+- `docs/getting-started.md`: setup, branches and the end-to-end workflow.
 - `docs/conventions.md`: workflow and general conventions.
 - `docs/code-style.md`: code style (Effective Go, Clean Code, KISS, YAGNI, duplication rules) and comments policy. Read before writing code.
 - `docs/architecture.md`: hexagonal and DDD rules; start flat, add layers only when a trigger appears.
