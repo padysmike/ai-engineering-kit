@@ -12,8 +12,8 @@ metadata:
 Use the tracker whose MCP tools are connected. Linear is the usual choice; Jira works too. If both are connected, ask which one to use. If none is connected, write the same plan to `docs/roadmap.md` and say so.
 
 ## Plan
-1. Read `scenarios/` and `docs/adr/`. Look at what the tracker already holds, so that you do not create anything twice.
-2. Group the feature files into phases. PoC proves the riskiest assumption. MVP is the smallest useful product. Add a third phase, finished product, only if there is work after the MVP.
+1. Read the feature files on the spec branch (for example `git show origin/ticket-0-spec:scenarios/<file>`) and the ADRs on the base branch. Look at what the tracker already holds, so that you do not create anything twice.
+2. Group the feature files into phases by their `@poc` and `@mvp` tags, and keep the order of their numbers. PoC proves the riskiest assumption. MVP is the smallest useful product. Add a third phase, finished product, only if there is work after the MVP (`@finished`). If a file has no tag, propose a phase and ask.
 3. Use one project per product. Ask before you create a project; the human may name an existing one. Each phase is:
    - in Linear: a milestone of the project;
    - in Jira: an epic in the project.

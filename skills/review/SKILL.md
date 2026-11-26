@@ -15,6 +15,12 @@ Report findings only. Do not edit code. Post comments only in the synthesis phas
 - Fetch the PR metadata and head SHA (needed to anchor comments) before starting any parallel work.
 - Read `AGENTS.md`, `docs/conventions.md` and the linked scenarios.
 
+## Project checks
+Do these for every PR. A failed check is at least `Important`.
+- **The base is current.** After a fetch, the PR head contains the latest base commit: `git merge-base --is-ancestor origin/<base> <head SHA>`. If not, ask for a rebase.
+- **Step files follow the rules** in the `write-steps` skill: `When` steps record and `Then` steps assert, per-scenario state goes through the shared helper, no buffering wrappers, no duplicate steps.
+- **Edits to approved tests and scenarios stay minimal.** These are the test and `.feature` files already on the base branch. Adding is fine. An edit needs a reason in the PR, changes only what that reason requires, and needs a human at the gate. A removed or weakened assertion is `Crucial` unless the requirement itself changed.
+
 ## Phase 1: per-PR reviewers
 - Review each PR separately, ideally with a separate agent or pass per distinct angle (security and reliability, fail-fast pragmatism, CI and build minimalism).
 - The very first action of each reviewer is to fetch the actual diff. Never reason from assumptions.

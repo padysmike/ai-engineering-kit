@@ -5,7 +5,7 @@ Goal: the agent can push branches and open pull requests, but only the gate can 
 ## Tokens
 Create two fine-grained personal access tokens, both limited to this one repository, both with a short expiry.
 
-| | Agent token (given to harness-docker) | Gate token (stays on the host) |
+| | Agent token (given to the agent) | Gate token (stays on the host) |
 |---|---|---|
 | Metadata | read | read |
 | Contents | read and write | read and write |
@@ -45,7 +45,7 @@ On the host, in a checkout the agent cannot write to:
     # export GATE_MCP_TOKENS=builder-1=...,reviewer=...
     bin/gate mcp --repo ~/gate-checkout --github OWNER/REPO --allow-merge --listen 127.0.0.1:8765 --state ~/.gate --sandbox-image ai-engineering-checks
 
-Point harness-docker's MCP configuration at `http://host.docker.internal:8765/mcp` with the header `Authorization: Bearer <GATE_MCP_TOKEN>`. On Docker Desktop for Mac the container reaches a loopback-bound host service this way. On Linux the container needs the bridge address instead of `host.docker.internal`.
+Point the agent's MCP configuration at `http://host.docker.internal:8765/mcp` with the header `Authorization: Bearer <GATE_MCP_TOKEN>`. That address is for an agent in a Docker sandbox. On Docker Desktop for Mac the container reaches a loopback-bound host service this way. On Linux the container needs the bridge address instead of `host.docker.internal`.
 
 The checkout used by the gate is a separate clone. The gate fetches the pull request branch and `main` from the remote, checks them in a temporary worktree with the Makefile and scripts from `main`, then posts the status and merges through the API.
 
