@@ -1,6 +1,6 @@
 # Changing approved tests and scenarios
 
-Approved scenarios (`scenarios/`) and existing tests (`*_test.go`) are the agent's fixed requirements. Protected paths (`Makefile`, `scripts/`, `gate/`, `skills/`, `.golangci.yml`, `.github/`, `AGENTS.md`, `CLAUDE.md`) are fixed too. The gate does not let a branch change them without a human. Adding new tests and scenarios is always allowed.
+Approved scenarios (`scenarios/`) and existing tests (`*_test.go`) are the agent's fixed requirements. Protected paths (`Makefile`, `GNUmakefile`, `makefile`, `scripts/`, `gate/`, `skills/`, `.golangci.yml`, `.github/`, `AGENTS.md`, `CLAUDE.md`) are fixed too. The gate does not let a branch change them without a human. Adding new tests and scenarios is always allowed.
 
 ## What the agent does
 - A requirement changes: propose the new or replacement scenario as an **added** file and say which old scenario it replaces. Do not edit or delete the old one.

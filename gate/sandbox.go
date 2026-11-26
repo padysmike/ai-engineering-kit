@@ -45,7 +45,8 @@ func (r checkRun) argv() []string {
 	if r.command != nil {
 		return r.command
 	}
-	return []string{"make", "-s", r.target}
+	// Without -f, make prefers a GNUmakefile or makefile, which a branch could add.
+	return []string{"make", "-s", r.target, "-f", trustedMakefile}
 }
 
 type sandboxFlags struct {

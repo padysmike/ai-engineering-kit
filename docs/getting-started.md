@@ -58,7 +58,7 @@ The default branch must always be green: the gate requires a pass for every test
 8. **The hard rule.** Ask the agent to "fix" an existing scenario (for example `health.feature`). The gate answers `NEEDS APPROVAL`. You decide: `approve.sh approvals`, then `approve.sh approve <PR>` or `approve.sh deny <PR> --reason "..."`.
 
 ## When the gate blocks
-- Adding tests and scenarios never needs approval. Modifying, renaming or deleting ones already on the default branch does, and so do protected paths (`Makefile`, `scripts/`, `gate/`, `skills/`, `.claude/`, `.github/`, `.golangci.yml`, `AGENTS.md`, `CLAUDE.md`).
+- Adding tests and scenarios never needs approval. Modifying, renaming or deleting ones already on the default branch does, and so do protected paths (`Makefile`, `GNUmakefile`, `makefile`, `scripts/`, `gate/`, `skills/`, `.claude/`, `.github/`, `.golangci.yml`, `AGENTS.md`, `CLAUDE.md`).
 - So whatever is on the project branch when you start is the approved baseline. Remove what you do not want (for example the health scenario) through a pull request you approve, before the real work starts.
 - To relax the gate for a while, a human can turn single checks off: `approve.sh checks`, `approve.sh disable lint`, `approve.sh enable lint` (see `gate/README.md`).
 - Coverage: 70 percent total, 80 percent of changed lines. Ask the agent to run `make check` before `open-pr`.

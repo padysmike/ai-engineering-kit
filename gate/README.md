@@ -5,8 +5,8 @@ A small Go program that decides whether a branch may be merged into `main`.
 ## Trust model
 - It runs on the host, outside the agent's sandbox. The agent has no merge token.
 - The checks execute the branch's own code (tests, build, lint), so they never run in the gate's process or environment. Each `make` target runs in a throwaway container with no network, no capabilities, none of the gate's environment variables, a read-only root filesystem and only three mounts: the worktree (read-only, so one target cannot rewrite the Makefile for the next), the diff, and a read-only module cache. Everything the checks write goes to a tmpfs that disappears with the container. The gate reads the exit code and the output. The gate's tokens and the approval state directory are never visible to the branch's code.
-- It trusts only the base branch. It restores `Makefile` and `scripts/` from the base branch before running any check, so a branch cannot weaken its own checks.
-- It blocks when a branch changes a protected path (`Makefile`, `scripts/`, `gate/`, `skills/`, `.claude/`, `.github/`, `.golangci.yml`, `AGENTS.md`, `CLAUDE.md`).
+- It trusts only the base branch. It restores `Makefile` and `scripts/` from the base branch before running any check, and runs `make` with `-f Makefile`, so a `GNUmakefile` or `makefile` added by the branch is not read. This way a branch cannot replace the make targets or scripts that check it.
+- It blocks when a branch changes a protected path (`Makefile`, `GNUmakefile`, `makefile`, `scripts/`, `gate/`, `skills/`, `.claude/`, `.github/`, `.golangci.yml`, `AGENTS.md`, `CLAUDE.md`).
 - It blocks when a branch modifies, renames or deletes an approved test or scenario (`scenarios/`, `*_test.go`). Adding new ones is allowed.
 - With `--merge` it merges (`--no-ff`) only if every check passes.
 

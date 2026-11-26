@@ -16,7 +16,7 @@ import (
 
 const (
 	defaultTargets   = "fmt-check,vet,lint,test,bdd,coverage,diff-coverage,validate-skills"
-	defaultProtected = "Makefile,scripts/,gate/,skills/,.claude/,.github/,.golangci.yml,AGENTS.md,CLAUDE.md"
+	defaultProtected = "Makefile,GNUmakefile,makefile,scripts/,gate/,skills/,.claude/,.github/,.golangci.yml,AGENTS.md,CLAUDE.md"
 	checkTimeout     = 10 * time.Minute
 	detailLines      = 6
 	trustedMakefile  = "Makefile"

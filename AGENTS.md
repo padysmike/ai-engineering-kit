@@ -17,7 +17,7 @@ The base branch is the repository's default branch on GitHub: `gh repo view --js
 - One ticket = one branch (`ticket-<id>-<slug>`) = one pull request. `<id>` is the issue key if you use a tracker. Never commit to the base branch or to `main`.
 - Never merge. The gate (`gate/`) merges, run by a human on the host.
 - Do not edit approved scenarios in `scenarios/` or existing tests. Adding new ones is fine.
-- Do not edit `Makefile`, `scripts/`, `gate/`, `skills/`, `.golangci.yml`, `.github/`, `AGENTS.md`, `CLAUDE.md`. If you think they need a change, ask a human.
+- Do not edit `Makefile`, `GNUmakefile`, `makefile`, `scripts/`, `gate/`, `skills/`, `.golangci.yml`, `.github/`, `AGENTS.md`, `CLAUDE.md`. If you think they need a change, ask a human.
 - Specs, ADRs, code, comments and commit messages are in English.
 
 ## Where things are
