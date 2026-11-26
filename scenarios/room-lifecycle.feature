@@ -3,7 +3,7 @@ Feature: Room lifecycle
   The host creates it and opens and closes it.
 
   # The read-only effect of a closed room on posts and votes is specified in
-  # posting.feature and voting.feature.
+  # post-limits.feature and closed-room-voting.feature.
   # Room settings have no scenarios: docs/product.md names no settings.
 
   Scenario: Each new room gets its own room code
