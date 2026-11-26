@@ -74,7 +74,7 @@ func writeRoomError(w http.ResponseWriter, err error) {
 
 func roomErrorStatus(err error) int {
 	switch {
-	case errors.Is(err, errRoomNotFound):
+	case errors.Is(err, errRoomNotFound), errors.Is(err, errPostNotFound):
 		return http.StatusNotFound
 	case errors.Is(err, errUnknownToken):
 		return http.StatusUnauthorized

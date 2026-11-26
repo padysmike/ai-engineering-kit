@@ -12,6 +12,7 @@ var (
 	errUnknownToken   = errors.New("token is missing or unknown")
 	errNotParticipant = errors.New("only a participant can do this")
 	errPostTooLong    = errors.New("post is longer than 280 characters")
+	errPostNotFound   = errors.New("post not found")
 )
 
 type participant struct {
@@ -21,9 +22,23 @@ type participant struct {
 }
 
 type post struct {
-	id    int
-	alias string
-	text  string
+	id       int
+	alias    string
+	text     string
+	voterIDs []int
+}
+
+func (p post) snapshot() post {
+	p.voterIDs = slices.Clone(p.voterIDs)
+	return p
+}
+
+func (p *post) toggleVote(participantID int) {
+	if i := slices.Index(p.voterIDs, participantID); i >= 0 {
+		p.voterIDs = slices.Delete(p.voterIDs, i, i+1)
+		return
+	}
+	p.voterIDs = append(p.voterIDs, participantID)
 }
 
 func (r room) participantByToken(token string) (participant, error) {
@@ -61,4 +76,19 @@ func (s *roomStore) addPost(code, alias, text string) (post, error) {
 	found.posts = append(found.posts, added)
 	s.byCode[code] = found
 	return added, nil
+}
+
+func (s *roomStore) toggleVote(code string, postID, participantID int) (post, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	found, ok := s.byCode[code]
+	if !ok {
+		return post{}, errRoomNotFound
+	}
+	i := slices.IndexFunc(found.posts, func(p post) bool { return p.id == postID })
+	if i < 0 {
+		return post{}, errPostNotFound
+	}
+	found.posts[i].toggleVote(participantID)
+	return found.posts[i].snapshot(), nil
 }
