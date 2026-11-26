@@ -185,7 +185,10 @@ function postItem(post) {
   votes.append(textElement("span", "", `${post.votes} ${post.votes === 1 ? "vote" : "votes"}`));
   if (session.role === "attendee") votes.append(voteButton(post));
   const item = document.createElement("li");
-  item.append(textElement("p", "author", post.alias), textElement("p", "text", post.text), votes);
+  item.append(textElement("p", "author", post.alias));
+  if (post.pinned) item.append(textElement("span", "mark", "Pinned"));
+  if (post.answered) item.append(textElement("span", "mark", "Answered"));
+  item.append(textElement("p", "text", post.text), votes);
   if (session.role === "host") item.append(moderationControls(post));
   return item;
 }
@@ -193,6 +196,13 @@ function postItem(post) {
 function moderationControls(post) {
   const controls = document.createElement("div");
   controls.className = "row";
+  if (!post.pinned) {
+    controls.append(actionButton("Pin", "Pin this post? This cannot be undone.", () => pinPost(post.id)));
+  }
+  if (!post.answered) {
+    const question = "Mark this post as answered? This cannot be undone.";
+    controls.append(actionButton("Mark answered", question, () => markAnswered(post.id)));
+  }
   controls.append(
     post.hidden
       ? textElement("span", "hidden-mark", "Hidden from attendees")
@@ -202,8 +212,9 @@ function moderationControls(post) {
   return controls;
 }
 
-const newestFirst = (a, b) => b.id - a.id;
-const mostVotedFirst = (a, b) => b.votes - a.votes || a.id - b.id;
+const pinnedFirst = (a, b) => Number(b.pinned) - Number(a.pinned);
+const newestFirst = (a, b) => pinnedFirst(a, b) || b.id - a.id;
+const mostVotedFirst = (a, b) => pinnedFirst(a, b) || b.votes - a.votes || a.id - b.id;
 
 // Sorting happens here, so a new sort order needs no request.
 function showFeed() {
@@ -434,6 +445,8 @@ async function moderate(method, path) {
   await refreshUnlessLive();
 }
 
+const pinPost = (postId) => moderate("POST", `/posts/${postId}/pin`);
+const markAnswered = (postId) => moderate("POST", `/posts/${postId}/answered`);
 const hidePost = (postId) => moderate("POST", `/posts/${postId}/hide`);
 const deletePost = (postId) => moderate("DELETE", `/posts/${postId}`);
 const kick = (participantId) => moderate("DELETE", `/participants/${participantId}`);
