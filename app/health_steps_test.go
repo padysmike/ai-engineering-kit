@@ -9,23 +9,31 @@ import (
 	"github.com/cucumber/godog"
 )
 
+type webClient struct{ response *httptest.ResponseRecorder }
+
+var webClients = perScenario[webClient]{}
+
+func webClientFor(sc *godog.ScenarioContext) *webClient {
+	return webClients.of(sc, func() *webClient { return &webClient{} })
+}
+
 func init() {
 	registerSteps(func(sc *godog.ScenarioContext) {
-		var rec *httptest.ResponseRecorder
+		client := webClientFor(sc)
 
 		sc.Step(`^a client requests GET (\S+)$`, func(path string) {
-			rec = httptest.NewRecorder()
-			newServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			client.response = httptest.NewRecorder()
+			newServer().ServeHTTP(client.response, httptest.NewRequest(http.MethodGet, path, nil))
 		})
 		sc.Step(`^the response status is (\d+)$`, func(want int) error {
-			if rec.Code != want {
-				return fmt.Errorf("status = %d, want %d", rec.Code, want)
+			if client.response.Code != want {
+				return fmt.Errorf("status = %d, want %d", client.response.Code, want)
 			}
 			return nil
 		})
 		sc.Step(`^the body contains (.+)$`, func(want string) error {
-			if !strings.Contains(rec.Body.String(), want) {
-				return fmt.Errorf("body %q lacks %s", rec.Body.String(), want)
+			if !strings.Contains(client.response.Body.String(), want) {
+				return fmt.Errorf("body %q lacks %s", client.response.Body.String(), want)
 			}
 			return nil
 		})
